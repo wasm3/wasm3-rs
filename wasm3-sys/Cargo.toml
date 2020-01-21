@@ -1,0 +1,11 @@
+[package]
+name = "wasm3-sys"
+version = "0.1.0"
+authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
+edition = "2018"
+license = "MIT"
+links = "wasm3"
+
+[build-dependencies]
+bindgen = "0.52"
+cc = "1"

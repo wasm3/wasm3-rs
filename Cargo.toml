@@ -5,8 +5,9 @@ authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
 edition = "2018"
 license = "MIT"
 
-[dependencies]
-wasm3-sys = {path = "wasm3-sys"}
+[dependencies.ffi]
+path = "wasm3-sys"
+package = "wasm3-sys"
 
 [workspace]
 members = ["wasm3-sys"]

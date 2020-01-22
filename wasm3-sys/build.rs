@@ -40,6 +40,7 @@ fn main() -> std::io::Result<()> {
     }
     cfg.warnings(false)
         .cpp(false)
+        .define("d_m3LogOutput", Some("0"))
         .extra_warnings(false)
         .include("wasm3/source")
         .compile("wasm3");

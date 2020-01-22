@@ -23,13 +23,13 @@ impl<'env> Runtime<'env> {
         }
     }
 
-    pub fn parse_and_load_module(&mut self, bytes: &[u8]) -> Result<()> {
+    pub fn parse_and_load_module(&self, bytes: &[u8]) -> Result<()> {
         Module::parse(self.environment, bytes)
             .and_then(|module| self.load_module(module).map_err(|(_, err)| err))
     }
 
     pub fn load_module(
-        &mut self,
+        &self,
         module: Module<'env>,
     ) -> std::result::Result<(), (Module<'env>, Error)> {
         if let Err(err) =

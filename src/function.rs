@@ -60,10 +60,9 @@ where
                 std::f64::NAN,
             )
         };
-        if !self.rt.has_errored() && ret.is_null() {
-            Ok(RET::fetch_from_stack(stack))
-        } else {
-            Err(Error::Wasm3("FIXME: error case"))
+        match self.rt.rt_error() {
+            Err(e) if ret.is_null() => Err(e),
+            _ => Ok(RET::fetch_from_stack(stack)),
         }
     }
 

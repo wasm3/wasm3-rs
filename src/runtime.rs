@@ -23,13 +23,13 @@ impl<'env> Runtime<'env> {
         }
     }
 
-    pub fn parse_and_load_module(&mut self, bytes: &[u8]) -> Result<()> {
+    pub fn parse_and_load_module(&self, bytes: &[u8]) -> Result<()> {
         Module::parse(self.environment, bytes)
             .and_then(|module| self.load_module(module).map_err(|(_, err)| err))
     }
 
     pub fn load_module(
-        &mut self,
+        &self,
         module: Module<'env>,
     ) -> std::result::Result<(), (Module<'env>, Error)> {
         if let Err(err) =
@@ -46,14 +46,14 @@ impl<'env> Runtime<'env> {
         (*self.raw).memory.mallocated
     }
 
-    pub(crate) fn has_errored(&self) -> bool {
-        unsafe { !(*self.raw).runtimeError.is_null() }
+    pub(crate) fn rt_error(&self) -> Result<()> {
+        unsafe { Error::from_ffi_res((*self.raw).runtimeError) }
     }
 
     pub fn find_function<'rt, ARGS, RET>(
         &'rt self,
         name: &str,
-    ) -> Result<Function<'env, 'rt, ARGS, RET>>
+    ) -> Option<Function<'env, 'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
@@ -63,6 +63,7 @@ impl<'env> Runtime<'env> {
             let name = CString::new(name).unwrap();
             Error::from_ffi_res(ffi::m3_FindFunction(&mut function, self.raw, name.as_ptr()))
                 .and_then(|_| Function::from_raw(self, function))
+                .ok()
         }
     }
 

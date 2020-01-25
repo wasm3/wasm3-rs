@@ -3,7 +3,7 @@ use wasm3::module::Module;
 
 fn main() {
     let env = Environment::new();
-    let mut rt = env.create_runtime(1024 * 60);
+    let rt = env.create_runtime(1024 * 60);
     let module = Module::parse(&env, &include_bytes!("wasm/wasm-add/wasm_add.wasm")[..]).unwrap();
 
     assert!(rt.load_module(module).is_ok());

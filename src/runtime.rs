@@ -70,6 +70,23 @@ impl<'env> Runtime<'env> {
     pub fn print_info(&self) {
         unsafe { ffi::m3_PrintRuntimeInfo(self.raw) };
     }
+    // FIXME: The following three functions are unsound, cause a function call can mutate all of these slices
+    // on the c/wasm side while someone could possible hold a reference to these still
+
+    pub fn memory(&self) -> &[u8] {
+        unsafe {
+            let mut size = 0;
+            let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
+            slice::from_raw_parts(
+                if size == 0 {
+                    std::ptr::NonNull::dangling().as_ptr()
+                } else {
+                    ptr
+                },
+                size as usize,
+            )
+        }
+    }
 
     pub fn stack(&self) -> &[u64] {
         unsafe {

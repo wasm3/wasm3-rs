@@ -23,13 +23,13 @@ impl<'env> Runtime<'env> {
         }
     }
 
-    pub fn parse_and_load_module(&self, bytes: &[u8]) -> Result<()> {
+    pub fn parse_and_load_module(&mut self, bytes: &[u8]) -> Result<()> {
         Module::parse(self.environment, bytes)
             .and_then(|module| self.load_module(module).map_err(|(_, err)| err))
     }
 
     pub fn load_module(
-        &self,
+        &mut self,
         module: Module<'env>,
     ) -> std::result::Result<(), (Module<'env>, Error)> {
         if let Err(err) =
@@ -57,18 +57,52 @@ impl<'env> Runtime<'env> {
         }
     }
 
-    pub fn find_function<'rt>(&'rt self, name: &str) -> Result<Function<'env, 'rt>> {
+    pub(crate) unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
+        (*self.raw).memory.mallocated
+    }
+
+    pub(crate) fn has_errored(&self) -> bool {
+        unsafe { !(*self.raw).runtimeError.is_null() }
+    }
+
+    pub fn find_function<'rt, ARGS, RET>(
+        &'rt self,
+        name: &str,
+    ) -> Result<Function<'env, 'rt, ARGS, RET>>
+    where
+        ARGS: crate::WasmArgs,
+        RET: crate::WasmType,
+    {
         unsafe {
             let mut function = ptr::null_mut();
             let name = CString::new(name).unwrap();
             Error::from_ffi_res(ffi::m3_FindFunction(&mut function, self.raw, name.as_ptr()))
-                .map(|_| Function::from_raw(self, function))
+                .and_then(|_| Function::from_raw(self, function))
         }
     }
 
     #[inline]
     pub fn print_info(&self) {
         unsafe { ffi::m3_PrintRuntimeInfo(self.raw) };
+    }
+
+    pub fn stack(&self) -> &[u64] {
+        unsafe {
+            std::slice::from_raw_parts(
+                (*self.raw).stack as ffi::m3stack_t,
+                (*self.raw).numStackSlots as usize,
+            )
+        }
+    }
+
+    // FIXME: Unsound due to aliasing
+    pub fn stack_mut(&self) -> &mut [u64] {
+        unsafe {
+            std::slice::from_raw_parts_mut(
+                (*self.raw).stack as ffi::m3stack_t,
+                (*self.raw).numStackSlots as usize,
+            )
+        }
     }
 }
 

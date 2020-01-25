@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::module::Module;
+use crate::runtime::Runtime;
 
 pub struct Environment(ffi::IM3Environment);
 
@@ -7,6 +8,11 @@ impl Environment {
     #[inline]
     pub fn new() -> Self {
         unsafe { Environment(ffi::m3_NewEnvironment()) }
+    }
+
+    #[inline]
+    pub fn create_runtime(&self, stack_size: u32) -> Runtime {
+        Runtime::new(self, stack_size)
     }
 
     #[inline]

@@ -5,11 +5,8 @@ use std::io;
 use std::path::PathBuf;
 
 fn gen_bindings() -> io::Result<()> {
-    const PRIMITIVES: &[&str] = &[
-        "f64", "f32", "u64", "i64", "u32", "i32", "u16", "i16", "u8", "i8",
-    ];
     let whitelist_regex = "(I|c_)?[Mm]3.*";
-    let mut bindgen = bindgen::builder()
+    let bindgen = bindgen::builder()
         .layout_tests(false)
         .generate_comments(false)
         .default_enum_style(bindgen::EnumVariation::ModuleConsts)
@@ -17,27 +14,24 @@ fn gen_bindings() -> io::Result<()> {
         .whitelist_type(whitelist_regex)
         .whitelist_var(whitelist_regex)
         .derive_debug(false);
-    for path in fs::read_dir("wasm3/source")?
+    let bindgen = fs::read_dir("wasm3/source")?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-    {
-        if path.extension().and_then(OsStr::to_str) == Some("h") {
-            bindgen = bindgen.header(path.to_str().unwrap());
-        }
-    }
+        .filter(|path| path.extension().and_then(OsStr::to_str) == Some("h"))
+        .fold(bindgen, |bindgen, path| {
+            bindgen.header(path.to_str().unwrap())
+        });
+    let bindgen = [
+        "f64", "f32", "u64", "i64", "u32", "i32", "u16", "i16", "u8", "i8",
+    ]
+    .iter()
+    .fold(bindgen, |bindgen, &ty| bindgen.blacklist_type(ty));
+
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let mut bindings = bindgen
+    bindgen
         .generate()
         .expect("Unable to generate bindings")
-        .to_string();
-    // get rid of the `pub type i64 = i64;` cyclid definitions
-    for prim in PRIMITIVES.iter() {
-        let tdef = &format!("pub type {0} = {0};", prim);
-        if let Some(pos) = bindings.find(tdef) {
-            bindings.replace_range(pos..(pos + tdef.len()), "");
-        }
-    }
-    std::fs::write(out_path.join("bindings.rs"), bindings.as_bytes())
+        .write_to_file(out_path.join("bindings.rs"))
 }
 
 fn main() -> io::Result<()> {

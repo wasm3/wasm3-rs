@@ -70,41 +70,42 @@ impl<'env> Runtime<'env> {
     pub fn print_info(&self) {
         unsafe { ffi::m3_PrintRuntimeInfo(self.raw) };
     }
-    // FIXME: The following three functions are unsound, cause a function call can mutate all of these slices
-    // on the c/wasm side while someone could possible hold a reference to these still
 
-    pub fn memory(&self) -> &[u8] {
-        unsafe {
-            let mut size = 0;
-            let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
-            slice::from_raw_parts(
-                if size == 0 {
-                    std::ptr::NonNull::dangling().as_ptr()
-                } else {
-                    ptr
-                },
-                size as usize,
-            )
-        }
+    /// # Safety
+    /// This function is unsafe because it allows aliasing to happen.
+    /// The underlying memory may change if a runtimes exposed function is called.
+    pub unsafe fn memory(&self) -> &[u8] {
+        let mut size = 0;
+        let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
+        slice::from_raw_parts(
+            if size == 0 {
+                std::ptr::NonNull::dangling().as_ptr()
+            } else {
+                ptr
+            },
+            size as usize,
+        )
     }
 
-    pub fn stack(&self) -> &[u64] {
-        unsafe {
-            std::slice::from_raw_parts(
-                (*self.raw).stack as ffi::m3stack_t,
-                (*self.raw).numStackSlots as usize,
-            )
-        }
+    /// # Safety
+    /// This function is unsafe because it allows aliasing to happen.
+    /// The underlying memory may change if a runtimes exposed function is called.
+    pub unsafe fn stack(&self) -> &[u64] {
+        std::slice::from_raw_parts(
+            (*self.raw).stack as ffi::m3stack_t,
+            (*self.raw).numStackSlots as usize,
+        )
     }
 
-    // FIXME: Unsound due to aliasing, should use ref counting for this?
-    pub fn stack_mut(&self) -> &mut [u64] {
-        unsafe {
-            std::slice::from_raw_parts_mut(
-                (*self.raw).stack as ffi::m3stack_t,
-                (*self.raw).numStackSlots as usize,
-            )
-        }
+    /// # Safety
+    /// This function is unsafe because it allows aliasing to happen.
+    /// The underlying memory may change if a runtimes exposed function is called.
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn stack_mut(&self) -> &mut [u64] {
+        std::slice::from_raw_parts_mut(
+            (*self.raw).stack as ffi::m3stack_t,
+            (*self.raw).numStackSlots as usize,
+        )
     }
 }
 

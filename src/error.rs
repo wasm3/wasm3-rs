@@ -3,7 +3,7 @@ use std::fmt;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     Wasm3(&'static str),
     InvalidFunctionSignature,

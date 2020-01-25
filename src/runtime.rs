@@ -42,21 +42,6 @@ impl<'env> Runtime<'env> {
         }
     }
 
-    pub fn memory(&self) -> &[u8] {
-        unsafe {
-            let mut size = 0;
-            let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
-            slice::from_raw_parts(
-                if size == 0 {
-                    std::ptr::NonNull::dangling().as_ptr()
-                } else {
-                    ptr
-                },
-                size as usize,
-            )
-        }
-    }
-
     pub(crate) unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
         (*self.raw).memory.mallocated
     }
@@ -95,7 +80,7 @@ impl<'env> Runtime<'env> {
         }
     }
 
-    // FIXME: Unsound due to aliasing
+    // FIXME: Unsound due to aliasing, should use ref counting for this?
     pub fn stack_mut(&self) -> &mut [u64] {
         unsafe {
             std::slice::from_raw_parts_mut(

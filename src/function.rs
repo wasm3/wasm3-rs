@@ -34,6 +34,20 @@ where
         }
     }
 
+    pub fn import_module_name(&self) -> &str {
+        unsafe {
+            std::str::from_utf8_unchecked(
+                std::ffi::CStr::from_ptr((*self.raw).import.moduleUtf8).to_bytes(),
+            )
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        unsafe {
+            std::str::from_utf8_unchecked(std::ffi::CStr::from_ptr((*self.raw).name).to_bytes())
+        }
+    }
+
     fn call_impl(&self, args: ARGS) -> Result<RET> {
         let stack = self.rt.stack_mut();
         args.put_on_stack(stack);
@@ -49,7 +63,7 @@ where
         if !self.rt.has_errored() && ret.is_null() {
             Ok(RET::fetch_from_stack(stack))
         } else {
-            panic!()
+            Err(Error::Wasm3("FIXME: error case"))
         }
     }
 

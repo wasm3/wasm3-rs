@@ -22,6 +22,16 @@ impl<'env> Module<'env> {
         }
     }
 
+    /*requires defines
+    pub fn link_wasi(&mut self) {
+        unsafe { ffi::m3_LinkWASI(self.0) };
+    }
+
+    pub fn link_libc(&mut self) {
+        unsafe { ffi::m3_LinkLibC(self.0) };
+    }
+    */
+
     #[inline]
     pub(crate) fn as_ptr(&self) -> ffi::IM3Module {
         self.0

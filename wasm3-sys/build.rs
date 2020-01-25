@@ -5,7 +5,7 @@ use std::io;
 use std::path::PathBuf;
 
 fn gen_bindings() -> io::Result<()> {
-    let whitelist_regex = "(I|c_)?[Mm]3.*";
+    let whitelist_regex = "((?:I|c_)?[Mm]3.*)|Module_.*";
     let bindgen = bindgen::builder()
         .layout_tests(false)
         .generate_comments(false)

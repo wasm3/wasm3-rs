@@ -43,6 +43,25 @@ impl WasmArg for i32 {
     }
 }
 
+impl WasmType for u32 {
+    #[doc(hidden)]
+    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
+    #[doc(hidden)]
+    fn fetch_from_stack(stack: &[u64]) -> Self {
+        (stack[0] & 0xFFFF_FFFF) as u32
+    }
+    #[doc(hidden)]
+    fn sealed_() -> private::Seal {
+        private::Seal
+    }
+}
+impl WasmArg for u32 {
+    #[doc(hidden)]
+    fn into_u64(self) -> u64 {
+        self as u64
+    }
+}
+
 impl WasmType for i64 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
@@ -56,6 +75,25 @@ impl WasmType for i64 {
     }
 }
 impl WasmArg for i64 {
+    #[doc(hidden)]
+    fn into_u64(self) -> u64 {
+        self as u64
+    }
+}
+
+impl WasmType for u64 {
+    #[doc(hidden)]
+    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
+    #[doc(hidden)]
+    fn fetch_from_stack(stack: &[u64]) -> Self {
+        stack[0]
+    }
+    #[doc(hidden)]
+    fn sealed_() -> private::Seal {
+        private::Seal
+    }
+}
+impl WasmArg for u64 {
     #[doc(hidden)]
     fn into_u64(self) -> u64 {
         self as u64

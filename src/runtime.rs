@@ -6,7 +6,7 @@ use std::slice;
 use crate::environment::Environment;
 use crate::error::{Error, Result};
 use crate::function::Function;
-use crate::module::Module;
+use crate::module::{Module, ParsedModule};
 
 pub struct Runtime<'env> {
     raw: ffi::IM3Runtime,
@@ -23,22 +23,23 @@ impl<'env> Runtime<'env> {
         }
     }
 
-    pub fn parse_and_load_module(&self, bytes: &[u8]) -> Result<()> {
+    pub fn parse_and_load_module<'rt>(&'rt self, bytes: &[u8]) -> Result<Module<'env, 'rt>> {
         Module::parse(self.environment, bytes)
             .and_then(|module| self.load_module(module).map_err(|(_, err)| err))
     }
 
-    pub fn load_module(
-        &self,
-        module: Module<'env>,
-    ) -> std::result::Result<(), (Module<'env>, Error)> {
+    pub fn load_module<'rt>(
+        &'rt self,
+        module: ParsedModule<'env>,
+    ) -> std::result::Result<Module<'env, 'rt>, (ParsedModule<'env>, Error)> {
         if let Err(err) =
             unsafe { Error::from_ffi_res(ffi::m3_LoadModule(self.raw, module.as_ptr())) }
         {
             Err((module, err))
         } else {
+            let raw = module.as_ptr();
             mem::forget(module);
-            Ok(())
+            Ok(Module::from_raw(self, raw))
         }
     }
 
@@ -53,7 +54,7 @@ impl<'env> Runtime<'env> {
     pub fn find_function<'rt, ARGS, RET>(
         &'rt self,
         name: &str,
-    ) -> Option<Function<'env, 'rt, ARGS, RET>>
+    ) -> Result<Function<'env, 'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
@@ -62,8 +63,8 @@ impl<'env> Runtime<'env> {
             let mut function = ptr::null_mut();
             let name = CString::new(name).unwrap();
             Error::from_ffi_res(ffi::m3_FindFunction(&mut function, self.raw, name.as_ptr()))
+                .map_err(|_| Error::FunctionNotFound)
                 .and_then(|_| Function::from_raw(self, function))
-                .ok()
         }
     }
 
@@ -107,6 +108,10 @@ impl<'env> Runtime<'env> {
             (*self.raw).stack as ffi::m3stack_t,
             (*self.raw).numStackSlots as usize,
         )
+    }
+
+    pub(crate) fn as_ptr(&self) -> ffi::IM3Runtime {
+        self.raw
     }
 }
 

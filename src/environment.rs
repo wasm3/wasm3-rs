@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::module::Module;
+use crate::module::ParsedModule;
 use crate::runtime::Runtime;
 
 pub struct Environment(ffi::IM3Environment);
@@ -16,8 +16,8 @@ impl Environment {
     }
 
     #[inline]
-    pub fn parse_module<'env>(&'env self, bytes: &[u8]) -> Result<Module<'env>> {
-        Module::parse(self, bytes)
+    pub fn parse_module<'env>(&'env self, bytes: &[u8]) -> Result<ParsedModule<'env>> {
+        ParsedModule::parse(self, bytes)
     }
 
     #[inline]

@@ -15,15 +15,19 @@ where
     ARGS: WasmArgs,
     RET: WasmType,
 {
-    #[inline]
-    pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: ffi::IM3Function) -> Result<Self> {
+    pub(crate) fn validate_sig(func: ffi::IM3Function) -> bool {
         let &ffi::M3FuncType {
             returnType: ret,
-            argTypes: args,
+            argTypes: ref args,
             numArgs: num,
             ..
-        } = unsafe { &*(*raw).funcType };
-        if RET::TYPE_INDEX == ret && ARGS::validate_types(&args[..num as usize]) {
+        } = unsafe { &*(*func).funcType };
+        RET::TYPE_INDEX == ret && ARGS::validate_types(&args[..num as usize])
+    }
+
+    #[inline]
+    pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: ffi::IM3Function) -> Result<Self> {
+        if Self::validate_sig(raw) {
             Ok(Function {
                 raw,
                 rt,

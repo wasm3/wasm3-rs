@@ -7,6 +7,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     Wasm3(&'static str),
     InvalidFunctionSignature,
+    FunctionNotFound,
 }
 
 impl Error {
@@ -31,6 +32,7 @@ impl fmt::Display for Error {
             Error::InvalidFunctionSignature => {
                 write!(f, "the found function had an unexpected signature")
             }
+            Error::FunctionNotFound => write!(f, "the function could not be found"),
         }
     }
 }

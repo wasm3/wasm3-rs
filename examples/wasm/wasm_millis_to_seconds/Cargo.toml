@@ -1,5 +1,5 @@
 [package]
-name = "wasm-add"
+name = "wasm_millis_to_seconds"
 version = "0.1.0"
 authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
 edition = "2018"

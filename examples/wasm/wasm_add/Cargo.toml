@@ -1,0 +1,11 @@
+[package]
+name = "wasm_add"
+version = "0.1.0"
+authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
+edition = "2018"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[workspace]

@@ -112,3 +112,13 @@ where
         self.call_impl(t)
     }
 }
+
+impl<'env, 'rt, RET> Function<'env, 'rt, (), RET>
+where
+    RET: WasmType,
+{
+    #[inline]
+    pub fn call(&self) -> Result<RET> {
+        self.call_impl(())
+    }
+}

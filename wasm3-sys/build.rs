@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 fn gen_bindings() -> io::Result<()> {
     let whitelist_regex =
-        "((?:I|c_)?[Mm]3.*)|(.*Page.*)|(Module_.*)|EmitWord_impl|op_CallRawFunction";
+        "((?:I|c_)?[Mm]3.*)|.*Page.*|Module_.*|EmitWord_impl|op_CallRawFunction|Compile_Function";
     let bindgen = bindgen::builder()
         .layout_tests(false)
         .generate_comments(false)

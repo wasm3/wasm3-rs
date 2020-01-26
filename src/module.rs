@@ -68,7 +68,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
-        let func = self.find_function::<ARGS, RET>(module_name, function_name)?;
+        let func = self.find_import_function(module_name, function_name)?;
         if Function::<'_, '_, ARGS, RET>::validate_sig(func) {
             unsafe { self.link_func_impl(func, f) }
             Ok(())
@@ -94,15 +94,11 @@ impl<'env, 'rt> Module<'env, 'rt> {
         }
     }
 
-    fn find_function<ARGS, RET>(
+    fn find_import_function(
         &self,
         module_name: &str,
         function_name: &str,
-    ) -> Result<ffi::IM3Function>
-    where
-        ARGS: crate::WasmArgs,
-        RET: crate::WasmType,
-    {
+    ) -> Result<ffi::IM3Function> {
         if let Some(func) = unsafe {
             std::slice::from_raw_parts_mut((*self.raw).functions, (*self.raw).numFunctions as usize)
                 .iter_mut()
@@ -110,6 +106,33 @@ impl<'env, 'rt> Module<'env, 'rt> {
                 .find(|func| eq_cstr_str(CStr::from_ptr(func.import.fieldUtf8), function_name))
         } {
             Ok(func)
+        } else {
+            Err(Error::FunctionNotFound)
+        }
+    }
+
+    pub fn find_function<ARGS, RET>(
+        &self,
+        function_name: &str,
+    ) -> Result<Function<'env, 'rt, ARGS, RET>>
+    where
+        ARGS: crate::WasmArgs,
+        RET: crate::WasmType,
+    {
+        if let Some(func) = unsafe {
+            let functions_ptr = (*self.raw).functions;
+            std::slice::from_raw_parts_mut(
+                if functions_ptr.is_null() {
+                    std::ptr::NonNull::dangling().as_ptr()
+                } else {
+                    functions_ptr
+                },
+                (*self.raw).numFunctions as usize,
+            )
+            .iter_mut()
+            .find(|func| eq_cstr_str(CStr::from_ptr(func.name), function_name))
+        } {
+            Function::from_raw(self.rt, func).and_then(Function::compile)
         } else {
             Err(Error::FunctionNotFound)
         }

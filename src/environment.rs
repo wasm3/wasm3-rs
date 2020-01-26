@@ -2,6 +2,7 @@ use crate::error::Result;
 use crate::module::ParsedModule;
 use crate::runtime::Runtime;
 
+#[derive(Debug)]
 pub struct Environment(ffi::IM3Environment);
 
 impl Environment {

@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use crate::runtime::Runtime;
 use crate::{WasmArgs, WasmType};
 
+#[derive(Debug)]
 pub struct Function<'env, 'rt, ARGS, RET> {
     raw: ffi::IM3Function,
     rt: &'rt Runtime<'env>,
@@ -28,14 +29,25 @@ where
     #[inline]
     pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: ffi::IM3Function) -> Result<Self> {
         if Self::validate_sig(raw) {
-            Ok(Function {
+            let this = Function {
                 raw,
                 rt,
                 _pd: PhantomData,
-            })
+            };
+            this.compile()
         } else {
             Err(Error::InvalidFunctionSignature)
         }
+    }
+
+    #[inline]
+    pub(crate) fn compile(self) -> Result<Self> {
+        unsafe {
+            if (*self.raw).compiled.is_null() {
+                Error::from_ffi_res(ffi::Compile_Function(self.raw))?;
+            }
+        };
+        Ok(self)
     }
 
     pub fn import_module_name(&self) -> &str {

@@ -14,7 +14,7 @@ fn main() {
     module
         .link_function::<(), u64>("time", "millis", Some(millis))
         .unwrap();
-    let func = rt.find_function::<(), u64>("seconds").unwrap();
+    let func = module.find_function::<(), u64>("seconds").unwrap();
     println!("{}ms in seconds is {:?}s.", MILLIS, func.call());
     assert_eq!(func.call(), Ok(MILLIS / 1000));
 }
@@ -22,9 +22,9 @@ fn main() {
 const MILLIS: u64 = 500_000;
 
 unsafe extern "C" fn millis(
-    rt: ffi::IM3Runtime,
+    _rt: ffi::IM3Runtime,
     sp: *mut u64,
-    mem: *mut std::ffi::c_void,
+    _mem: *mut std::ffi::c_void,
 ) -> *const std::ffi::c_void {
     *sp = MILLIS;
     ffi::m3Err_none as _

@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -8,6 +7,7 @@ use crate::error::{Error, Result};
 use crate::function::Function;
 use crate::module::{Module, ParsedModule};
 
+#[derive(Debug)]
 pub struct Runtime<'env> {
     raw: ffi::IM3Runtime,
     environment: &'env Environment,
@@ -59,13 +59,15 @@ impl<'env> Runtime<'env> {
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
-        unsafe {
-            let mut function = ptr::null_mut();
-            let name = CString::new(name).unwrap();
-            Error::from_ffi_res(ffi::m3_FindFunction(&mut function, self.raw, name.as_ptr()))
-                .map_err(|_| Error::FunctionNotFound)
-                .and_then(|_| Function::from_raw(self, function))
+        let mut module = unsafe { (*self.raw).modules };
+        while !module.is_null() {
+            match Module::from_raw(self, module).find_function::<ARGS, RET>(name) {
+                res @ Ok(_) => return res,
+                res @ Err(Error::InvalidFunctionSignature) => return res,
+                _ => module = unsafe { (*module).next },
+            }
         }
+        Err(Error::FunctionNotFound)
     }
 
     #[inline]

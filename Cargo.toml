@@ -7,7 +7,11 @@ license = "MIT"
 
 [features]
 wasi = ["ffi/wasi"]
-default = ["wasi"]
+std = []
+default = ["wasi", "std"]
+
+[dependencies]
+libc = "^0.2"
 
 [dependencies.ffi]
 path = "wasm3-sys"

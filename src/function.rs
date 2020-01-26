@@ -1,5 +1,7 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
+use core::str;
 
+use crate::bytes_till_null;
 use crate::error::{Error, Result};
 use crate::runtime::Runtime;
 use crate::{WasmArgs, WasmType};
@@ -51,17 +53,11 @@ where
     }
 
     pub fn import_module_name(&self) -> &str {
-        unsafe {
-            std::str::from_utf8_unchecked(
-                std::ffi::CStr::from_ptr((*self.raw).import.moduleUtf8).to_bytes(),
-            )
-        }
+        unsafe { str::from_utf8_unchecked(bytes_till_null((*self.raw).import.moduleUtf8)) }
     }
 
     pub fn name(&self) -> &str {
-        unsafe {
-            std::str::from_utf8_unchecked(std::ffi::CStr::from_ptr((*self.raw).name).to_bytes())
-        }
+        unsafe { str::from_utf8_unchecked(bytes_till_null((*self.raw).name)) }
     }
 
     fn call_impl(&self, args: ARGS) -> Result<RET> {
@@ -73,7 +69,7 @@ where
                 stack.as_mut_ptr(),
                 self.rt.mallocated(),
                 666,
-                std::f64::NAN,
+                core::f64::NAN,
             )
         };
         match self.rt.rt_error() {

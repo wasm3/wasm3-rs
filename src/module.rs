@@ -1,7 +1,6 @@
-use std::cmp::Ordering;
-use std::ffi::CStr;
-use std::marker::PhantomData;
-use std::ptr;
+use core::marker::PhantomData;
+use core::ptr;
+use core::slice;
 
 use crate::environment::Environment;
 use crate::error::{Error, Result};
@@ -85,10 +84,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
             (*m3_func).compiled = ffi::GetPagePC(page);
             (*m3_func).module = self.raw;
             ffi::EmitWord_impl(page, ffi::op_CallRawFunction as _);
-            ffi::EmitWord_impl(
-                page,
-                func.map(|f| f as _).unwrap_or_else(std::ptr::null_mut),
-            );
+            ffi::EmitWord_impl(page, func.map(|f| f as _).unwrap_or_else(ptr::null_mut));
 
             ffi::ReleaseCodePage(self.rt.as_ptr(), page);
         }
@@ -100,10 +96,10 @@ impl<'env, 'rt> Module<'env, 'rt> {
         function_name: &str,
     ) -> Result<ffi::IM3Function> {
         if let Some(func) = unsafe {
-            std::slice::from_raw_parts_mut((*self.raw).functions, (*self.raw).numFunctions as usize)
+            slice::from_raw_parts_mut((*self.raw).functions, (*self.raw).numFunctions as usize)
                 .iter_mut()
-                .filter(|func| eq_cstr_str(CStr::from_ptr(func.import.moduleUtf8), module_name))
-                .find(|func| eq_cstr_str(CStr::from_ptr(func.import.fieldUtf8), function_name))
+                .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
+                .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
         } {
             Ok(func)
         } else {
@@ -121,16 +117,16 @@ impl<'env, 'rt> Module<'env, 'rt> {
     {
         if let Some(func) = unsafe {
             let functions_ptr = (*self.raw).functions;
-            std::slice::from_raw_parts_mut(
+            slice::from_raw_parts_mut(
                 if functions_ptr.is_null() {
-                    std::ptr::NonNull::dangling().as_ptr()
+                    ptr::NonNull::dangling().as_ptr()
                 } else {
                     functions_ptr
                 },
                 (*self.raw).numFunctions as usize,
             )
             .iter_mut()
-            .find(|func| eq_cstr_str(CStr::from_ptr(func.name), function_name))
+            .find(|func| eq_cstr_str(func.name, function_name))
         } {
             Function::from_raw(self.rt, func).and_then(Function::compile)
         } else {
@@ -148,12 +144,22 @@ impl<'env, 'rt> Module<'env, 'rt> {
     }
 }
 
-fn cmp_cstr_str(cstr: &CStr, str: &str) -> Ordering {
-    cstr.to_bytes().iter().cmp(str.as_bytes())
-}
-
-fn eq_cstr_str(cstr: &CStr, str: &str) -> bool {
-    cmp_cstr_str(cstr, str) == Ordering::Equal
+fn eq_cstr_str(cstr: *const libc::c_char, str: &str) -> bool {
+    if cstr.is_null() {
+        return str.is_empty();
+    }
+    let mut bytes = str.as_bytes().iter();
+    let mut cstr = cstr.cast::<u8>();
+    loop {
+        match (bytes.next(), unsafe { *cstr }) {
+            (None, 0) => break true,
+            (Some(_), 0) => break false,
+            (Some(&byte), cbyte) if cbyte == byte => unsafe {
+                cstr = cstr.add(1);
+            },
+            _ => break false,
+        }
+    }
 }
 
 #[test]

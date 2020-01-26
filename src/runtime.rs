@@ -1,6 +1,6 @@
-use std::mem;
-use std::ptr;
-use std::slice;
+use core::mem;
+use core::ptr;
+use core::slice;
 
 use crate::environment::Environment;
 use crate::error::{Error, Result};
@@ -31,7 +31,7 @@ impl<'env> Runtime<'env> {
     pub fn load_module<'rt>(
         &'rt self,
         module: ParsedModule<'env>,
-    ) -> std::result::Result<Module<'env, 'rt>, (ParsedModule<'env>, Error)> {
+    ) -> core::result::Result<Module<'env, 'rt>, (ParsedModule<'env>, Error)> {
         if let Err(err) =
             unsafe { Error::from_ffi_res(ffi::m3_LoadModule(self.raw, module.as_ptr())) }
         {
@@ -83,7 +83,7 @@ impl<'env> Runtime<'env> {
         let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
         slice::from_raw_parts(
             if size == 0 {
-                std::ptr::NonNull::dangling().as_ptr()
+                ptr::NonNull::dangling().as_ptr()
             } else {
                 ptr
             },
@@ -95,7 +95,7 @@ impl<'env> Runtime<'env> {
     /// This function is unsafe because it allows aliasing to happen.
     /// The underlying memory may change if a runtimes exposed function is called.
     pub unsafe fn stack(&self) -> &[u64] {
-        std::slice::from_raw_parts(
+        slice::from_raw_parts(
             (*self.raw).stack as ffi::m3stack_t,
             (*self.raw).numStackSlots as usize,
         )
@@ -106,7 +106,7 @@ impl<'env> Runtime<'env> {
     /// The underlying memory may change if a runtimes exposed function is called.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn stack_mut(&self) -> &mut [u64] {
-        std::slice::from_raw_parts_mut(
+        slice::from_raw_parts_mut(
             (*self.raw).stack as ffi::m3stack_t,
             (*self.raw).numStackSlots as usize,
         )

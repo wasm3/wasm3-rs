@@ -1,7 +1,9 @@
-use std::error;
-use std::fmt;
+use core::fmt;
+use core::str;
 
-pub type Result<T> = std::result::Result<T, Error>;
+use crate::bytes_till_null;
+
+pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -16,15 +18,14 @@ impl Error {
             if ptr.is_null() {
                 Ok(())
             } else {
-                Err(Error::Wasm3(
-                    std::ffi::CStr::from_ptr(ptr).to_str().unwrap(),
-                ))
+                Err(Error::Wasm3(str::from_utf8_unchecked(bytes_till_null(ptr))))
             }
         }
     }
 }
 
-impl error::Error for Error {}
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

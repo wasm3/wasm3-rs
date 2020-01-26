@@ -5,6 +5,10 @@ authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
 edition = "2018"
 license = "MIT"
 
+[features]
+wasi = ["ffi/wasi"]
+default = ["wasi"]
+
 [dependencies.ffi]
 path = "wasm3-sys"
 package = "wasm3-sys"

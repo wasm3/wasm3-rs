@@ -115,11 +115,10 @@ impl<'env, 'rt> Module<'env, 'rt> {
         }
     }
 
-    /*requires defines
+    #[cfg(feature = "wasi")]
     pub fn link_wasi(&mut self) {
-        unsafe { ffi::m3_LinkWASI(self.0) };
+        unsafe { ffi::m3_LinkWASI(self.raw) };
     }
-    */
 
     pub fn link_libc(&mut self) {
         unsafe { ffi::m3_LinkLibC(self.raw) };

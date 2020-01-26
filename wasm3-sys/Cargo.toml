@@ -6,6 +6,9 @@ edition = "2018"
 license = "MIT"
 links = "wasm3"
 
+[features]
+wasi = []
+
 [build-dependencies]
 bindgen = "0.52"
 cc = "1"

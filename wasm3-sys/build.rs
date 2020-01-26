@@ -54,11 +54,15 @@ fn main() -> io::Result<()> {
         cfg.flag("/Zo");
         cfg.flag("/arch:AVX2");
     }
-    cfg.warnings(false)
+    let cfg = cfg
+        .warnings(false)
         .cpp(false)
         .define("d_m3LogOutput", Some("0"))
         .extra_warnings(false)
-        .include("wasm3/source")
-        .compile("wasm3");
+        .include("wasm3/source");
+    if cfg!(feature = "wasi") {
+        cfg.define("d_m3HasWASI", None);
+    }
+    cfg.compile("wasm3");
     Ok(())
 }

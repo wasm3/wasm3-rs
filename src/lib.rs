@@ -7,6 +7,8 @@ pub mod module;
 pub mod runtime;
 mod ty;
 pub use self::ty::{WasmArg, WasmArgs, WasmType};
+mod macros;
+pub use self::macros::*;
 
 #[inline]
 pub fn print_m3_info() {

@@ -12,7 +12,7 @@ fn main() {
 
     let mut module = rt.load_module(module).map_err(|(_, e)| e).unwrap();
     module
-        .link_function::<(), u64>("time", "millis", Some(millis))
+        .link_function::<(), u64>("time", "millis", millis_wrap)
         .unwrap();
     let func = module.find_function::<(), u64>("seconds").unwrap();
     println!("{}ms in seconds is {:?}s.", MILLIS, func.call());
@@ -21,11 +21,7 @@ fn main() {
 
 const MILLIS: u64 = 500_000;
 
-unsafe extern "C" fn millis(
-    _rt: ffi::IM3Runtime,
-    sp: *mut u64,
-    _mem: *mut std::ffi::c_void,
-) -> *const std::ffi::c_void {
-    *sp = MILLIS;
-    ffi::m3Err_none as _
+wasm3::make_func_wrapper!(millis_wrap: millis() -> u64);
+fn millis() -> u64 {
+    MILLIS
 }

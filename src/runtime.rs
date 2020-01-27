@@ -33,7 +33,7 @@ impl<'env> Runtime<'env> {
         module: ParsedModule<'env>,
     ) -> core::result::Result<Module<'env, 'rt>, (ParsedModule<'env>, Error)> {
         if let Err(err) =
-            unsafe { Error::from_ffi_res(ffi::m3_LoadModule(self.raw, module.as_ptr())) }
+            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw, module.as_ptr()) })
         {
             Err((module, err))
         } else {

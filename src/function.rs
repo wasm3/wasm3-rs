@@ -6,6 +6,13 @@ use crate::error::{Error, Result};
 use crate::runtime::Runtime;
 use crate::{WasmArgs, WasmType};
 
+// redefine of ffi::RawCall without the Option<T> around it
+pub type RawCall = unsafe extern "C" fn(
+    runtime: ffi::IM3Runtime,
+    _sp: *mut u64,
+    _mem: *mut libc::c_void,
+) -> *const libc::c_void;
+
 #[derive(Debug)]
 pub struct Function<'env, 'rt, ARGS, RET> {
     raw: ffi::IM3Function,

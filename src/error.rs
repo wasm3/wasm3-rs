@@ -9,6 +9,7 @@ pub enum Error {
     Wasm3(&'static str),
     InvalidFunctionSignature,
     FunctionNotFound,
+    ModuleNotFound,
 }
 
 impl Error {
@@ -31,6 +32,7 @@ impl fmt::Display for Error {
                 write!(f, "the found function had an unexpected signature")
             }
             Error::FunctionNotFound => write!(f, "the function could not be found"),
+            Error::ModuleNotFound => write!(f, "the module could not be found"),
         }
     }
 }

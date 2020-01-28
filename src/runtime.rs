@@ -6,6 +6,7 @@ use crate::environment::Environment;
 use crate::error::{Error, Result};
 use crate::function::Function;
 use crate::module::{Module, ParsedModule};
+use crate::utils::eq_cstr_str;
 
 #[derive(Debug)]
 pub struct Runtime<'env> {
@@ -59,15 +60,36 @@ impl<'env> Runtime<'env> {
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
-        let mut module = unsafe { ptr::NonNull::new((*self.raw).modules) };
-        while let Some(raw_mod) = module {
-            match Module::from_raw(self, raw_mod.as_ptr()).find_function::<ARGS, RET>(name) {
-                res @ Ok(_) => return res,
-                res @ Err(Error::InvalidFunctionSignature) => return res,
-                _ => module = unsafe { ptr::NonNull::new(raw_mod.as_ref().next) },
+        self.modules()
+            .find_map(|module| match module.find_function::<ARGS, RET>(name) {
+                res @ Ok(_) => Some(res),
+                res @ Err(Error::InvalidFunctionSignature) => Some(res),
+                _ => None,
+            })
+            .unwrap_or(Err(Error::FunctionNotFound))
+    }
+
+    /// Using this over searching through [`modules`] is a bit more efficient.
+    pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'env, 'rt>> {
+        unsafe {
+            let mut module = ptr::NonNull::new((*self.raw).modules);
+            while let Some(raw_mod) = module {
+                if eq_cstr_str(raw_mod.as_ref().name, name) {
+                    return Ok(Module::from_raw(self, raw_mod.as_ptr()));
+                }
+                module = ptr::NonNull::new(raw_mod.as_ref().next);
             }
+            Err(Error::ModuleNotFound)
         }
-        Err(Error::FunctionNotFound)
+    }
+
+    pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'env, 'rt>> + 'rt {
+        // pointer could get invalidated if modules can become unloaded
+        let mut module = unsafe { ptr::NonNull::new((*self.raw).modules) };
+        core::iter::from_fn(move || {
+            let next = unsafe { module.and_then(|module| ptr::NonNull::new(module.as_ref().next)) };
+            mem::replace(&mut module, next).map(|raw| Module::from_raw(self, raw.as_ptr()))
+        })
     }
 
     #[inline]

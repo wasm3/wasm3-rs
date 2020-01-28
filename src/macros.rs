@@ -7,8 +7,8 @@ macro_rules! make_func_wrapper {
         $wis unsafe extern "C" fn $wrapper_name(
             _rt: ffi::IM3Runtime,
             _sp: *mut u64,
-            _mem: *mut std::ffi::c_void,
-        ) -> *const std::ffi::c_void {
+            _mem: *mut core::ffi::c_void,
+        ) -> *const core::ffi::c_void {
             let ssp = _sp;
             $(
                 let $pname = $crate::read_stack_param!(_sp -> $ptype);

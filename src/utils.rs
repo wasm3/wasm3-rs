@@ -16,19 +16,17 @@ pub unsafe fn cstr_to_str<'a>(ptr: *const libc::c_char) -> &'a str {
     core::str::from_utf8_unchecked(bytes_till_null(ptr))
 }
 
-pub fn eq_cstr_str(cstr: *const libc::c_char, str: &str) -> bool {
+pub unsafe fn eq_cstr_str(cstr: *const libc::c_char, str: &str) -> bool {
     if cstr.is_null() {
         return false;
     }
     let mut bytes = str.as_bytes().iter();
     let mut cstr = cstr.cast::<u8>();
     loop {
-        match (bytes.next(), unsafe { *cstr }) {
+        match (bytes.next(), *cstr) {
             (None, 0) => break true,
             (Some(_), 0) => break false,
-            (Some(&byte), cbyte) if cbyte == byte => unsafe {
-                cstr = cstr.add(1);
-            },
+            (Some(&byte), cbyte) if cbyte == byte => cstr = cstr.add(1),
             _ => break false,
         }
     }

@@ -6,7 +6,7 @@ use crate::environment::Environment;
 use crate::error::{Error, Result};
 use crate::function::{Function, NNM3Function, RawCall};
 use crate::runtime::Runtime;
-use crate::utils::eq_cstr_str;
+use crate::utils::{cstr_to_str, eq_cstr_str};
 
 pub struct ParsedModule<'env> {
     raw: ffi::IM3Module,
@@ -101,12 +101,12 @@ impl<'env, 'rt> Module<'env, 'rt> {
                 },
                 (*self.raw).numFunctions as usize,
             )
+            .iter_mut()
+            .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
+            .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
+            .map(NonNull::from)
+            .ok_or(Error::FunctionNotFound)
         }
-        .iter_mut()
-        .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
-        .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
-        .map(NonNull::from)
-        .ok_or(Error::FunctionNotFound)
     }
 
     pub fn find_function<ARGS, RET>(
@@ -132,6 +132,34 @@ impl<'env, 'rt> Module<'env, 'rt> {
             .ok_or(Error::FunctionNotFound)?
         };
         Function::from_raw(self.rt, func).and_then(Function::compile)
+    }
+
+    pub fn function<ARGS, RET>(
+        &self,
+        function_index: usize,
+    ) -> Result<Function<'env, 'rt, ARGS, RET>>
+    where
+        ARGS: crate::WasmArgs,
+        RET: crate::WasmType,
+    {
+        let func = unsafe {
+            slice::from_raw_parts_mut(
+                if (*self.raw).functions.is_null() {
+                    NonNull::dangling().as_ptr()
+                } else {
+                    (*self.raw).functions
+                },
+                (*self.raw).numFunctions as usize,
+            )
+            .get(function_index)
+            .map(NonNull::from)
+            .ok_or(Error::FunctionNotFound)?
+        };
+        Function::from_raw(self.rt, func).and_then(Function::compile)
+    }
+
+    pub fn name(&self) -> &str {
+        unsafe { cstr_to_str((*self.raw).name) }
     }
 
     #[cfg(feature = "wasi")]

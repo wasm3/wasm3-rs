@@ -3,8 +3,8 @@
 #[macro_export]
 macro_rules! make_func_wrapper {
     // ptype is an ident because we still want to match on it later -- \/                  rtype too -- \/
-    ( $wrapper_name:ident:  $original:ident( $( $pname:ident: $ptype:ident ),* $( , )? ) $( -> $rtype:ident )?) => {
-        unsafe extern "C" fn $wrapper_name(
+    ( $wis:vis $wrapper_name:ident: $original:ident( $( $pname:ident: $ptype:ident ),* $( , )? ) $( -> $rtype:ident )?) => {
+        $wis unsafe extern "C" fn $wrapper_name(
             _rt: ffi::IM3Runtime,
             _sp: *mut u64,
             _mem: *mut std::ffi::c_void,

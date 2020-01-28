@@ -1,9 +1,9 @@
 use core::marker::PhantomData;
 use core::str;
 
-use crate::bytes_till_null;
 use crate::error::{Error, Result};
 use crate::runtime::Runtime;
+use crate::utils::cstr_to_str;
 use crate::{WasmArgs, WasmType};
 
 // redefine of ffi::RawCall without the Option<T> around it
@@ -26,6 +26,7 @@ where
     RET: WasmType,
 {
     pub(crate) fn validate_sig(func: ffi::IM3Function) -> bool {
+        debug_assert!(!func.is_null());
         let &ffi::M3FuncType {
             returnType: ret,
             argTypes: ref args,
@@ -60,11 +61,11 @@ where
     }
 
     pub fn import_module_name(&self) -> &str {
-        unsafe { str::from_utf8_unchecked(bytes_till_null((*self.raw).import.moduleUtf8)) }
+        unsafe { cstr_to_str((*self.raw).import.moduleUtf8) }
     }
 
     pub fn name(&self) -> &str {
-        unsafe { str::from_utf8_unchecked(bytes_till_null((*self.raw).name)) }
+        unsafe { cstr_to_str((*self.raw).name) }
     }
 
     fn call_impl(&self, args: ARGS) -> Result<RET> {

@@ -1,7 +1,6 @@
 use core::fmt;
-use core::str;
 
-use crate::bytes_till_null;
+use crate::utils::cstr_to_str;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -14,12 +13,10 @@ pub enum Error {
 
 impl Error {
     pub(crate) fn from_ffi_res(ptr: ffi::M3Result) -> Result<()> {
-        unsafe {
-            if ptr.is_null() {
-                Ok(())
-            } else {
-                Err(Error::Wasm3(str::from_utf8_unchecked(bytes_till_null(ptr))))
-            }
+        if ptr.is_null() {
+            Ok(())
+        } else {
+            Err(Error::Wasm3(unsafe { cstr_to_str(ptr) }))
         }
     }
 }

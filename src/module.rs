@@ -6,6 +6,7 @@ use crate::environment::Environment;
 use crate::error::{Error, Result};
 use crate::function::{Function, RawCall};
 use crate::runtime::Runtime;
+use crate::utils::eq_cstr_str;
 
 pub struct ParsedModule<'env> {
     raw: ffi::IM3Module,
@@ -96,10 +97,17 @@ impl<'env, 'rt> Module<'env, 'rt> {
         function_name: &str,
     ) -> Result<ffi::IM3Function> {
         if let Some(func) = unsafe {
-            slice::from_raw_parts_mut((*self.raw).functions, (*self.raw).numFunctions as usize)
-                .iter_mut()
-                .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
-                .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
+            slice::from_raw_parts_mut(
+                if (*self.raw).functions.is_null() {
+                    ptr::NonNull::dangling().as_ptr()
+                } else {
+                    (*self.raw).functions
+                },
+                (*self.raw).numFunctions as usize,
+            )
+            .iter_mut()
+            .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
+            .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
         } {
             Ok(func)
         } else {
@@ -116,12 +124,11 @@ impl<'env, 'rt> Module<'env, 'rt> {
         RET: crate::WasmType,
     {
         if let Some(func) = unsafe {
-            let functions_ptr = (*self.raw).functions;
             slice::from_raw_parts_mut(
-                if functions_ptr.is_null() {
+                if (*self.raw).functions.is_null() {
                     ptr::NonNull::dangling().as_ptr()
                 } else {
-                    functions_ptr
+                    (*self.raw).functions
                 },
                 (*self.raw).numFunctions as usize,
             )
@@ -141,24 +148,6 @@ impl<'env, 'rt> Module<'env, 'rt> {
 
     pub fn link_libc(&mut self) {
         unsafe { ffi::m3_LinkLibC(self.raw) };
-    }
-}
-
-fn eq_cstr_str(cstr: *const libc::c_char, str: &str) -> bool {
-    if cstr.is_null() {
-        return str.is_empty();
-    }
-    let mut bytes = str.as_bytes().iter();
-    let mut cstr = cstr.cast::<u8>();
-    loop {
-        match (bytes.next(), unsafe { *cstr }) {
-            (None, 0) => break true,
-            (Some(_), 0) => break false,
-            (Some(&byte), cbyte) if cbyte == byte => unsafe {
-                cstr = cstr.add(1);
-            },
-            _ => break false,
-        }
     }
 }
 

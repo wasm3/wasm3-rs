@@ -15,10 +15,10 @@ fn gen_bindings() -> Result<()> {
     let wrapper_file = wrapper_file.to_str().unwrap();
 
     {
-        let file = fs::File::create(wrapper_file).unwrap();
+        let file = fs::File::create(wrapper_file).expect("failed to create wasm3 wrapper file");
         let mut file = BufWriter::new(file);
         for path in fs::read_dir("wasm3/source")
-            .unwrap()
+            .expect("failed to read wasm3/source directory")
             .filter_map(Result::ok)
             .map(|entry| entry.path())
             .filter(|path| path.extension().and_then(OsStr::to_str) == Some("h"))

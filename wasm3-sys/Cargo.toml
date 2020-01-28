@@ -10,7 +10,7 @@ links = "wasm3"
 wasi = []
 
 [dependencies]
-libc = "^0.2"
+cty = "0.2"
 
 [build-dependencies]
 cc = "1"

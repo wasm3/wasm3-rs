@@ -11,7 +11,7 @@ std = []
 default = ["wasi", "std"]
 
 [dependencies]
-libc = "^0.2"
+cty = "0.2"
 
 [dependencies.ffi]
 path = "wasm3-sys"

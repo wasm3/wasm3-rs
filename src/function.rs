@@ -11,8 +11,8 @@ use crate::{WasmArgs, WasmType};
 pub type RawCall = unsafe extern "C" fn(
     runtime: ffi::IM3Runtime,
     _sp: *mut u64,
-    _mem: *mut libc::c_void,
-) -> *const libc::c_void;
+    _mem: *mut cty::c_void,
+) -> *const cty::c_void;
 
 pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 

@@ -33,7 +33,7 @@ fn gen_bindings() -> Result<()> {
         .arg(wrapper_file)
         .arg("--use-core")
         .arg("--ctypes-prefix")
-        .arg("libc")
+        .arg("cty")
         .arg("--no-layout-tests")
         .arg("--default-enum-style=moduleconsts")
         .arg("--no-doc-comments")

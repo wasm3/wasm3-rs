@@ -1,4 +1,4 @@
-pub unsafe fn bytes_till_null<'a>(ptr: *const libc::c_char) -> &'a [u8] {
+pub unsafe fn bytes_till_null<'a>(ptr: *const cty::c_char) -> &'a [u8] {
     if ptr.is_null() {
         return &[];
     }
@@ -12,11 +12,11 @@ pub unsafe fn bytes_till_null<'a>(ptr: *const libc::c_char) -> &'a [u8] {
     core::slice::from_raw_parts(start, len)
 }
 
-pub unsafe fn cstr_to_str<'a>(ptr: *const libc::c_char) -> &'a str {
+pub unsafe fn cstr_to_str<'a>(ptr: *const cty::c_char) -> &'a str {
     core::str::from_utf8_unchecked(bytes_till_null(ptr))
 }
 
-pub unsafe fn eq_cstr_str(cstr: *const libc::c_char, str: &str) -> bool {
+pub unsafe fn eq_cstr_str(cstr: *const cty::c_char, str: &str) -> bool {
     if cstr.is_null() {
         return false;
     }

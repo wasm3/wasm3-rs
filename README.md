@@ -1,4 +1,4 @@
-# wasm3-rs
+# wasm3-rs ![Build](https://github.com/Veykril/wasm3-rs/workflows/Rust/badge.svg?branch=master) ![Tokei](https://tokei.rs/b1/github/veykril/wasm3-rs)
 
 Rust wrapper for [WASM3](https://github.com/wasm3/wasm3).
 
@@ -26,7 +26,7 @@ fn main() {
 
 ## Building
 This crate currently does not make use of the cmake project of wasm3, meaning cmake is not required to built this for the time being.
-It does however require [Clang 9](https://releases.llvm.org/download.html#9.0.0) to be installed.
+It does however require [Clang 9](https://releases.llvm.org/download.html#9.0.0) to be installed as well as [Bindgen](https://github.com/rust-lang/rust-bindgen).
 
 ## License
 Licensed under the MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)

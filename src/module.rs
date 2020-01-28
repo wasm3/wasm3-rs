@@ -1,10 +1,10 @@
 use core::marker::PhantomData;
-use core::ptr;
+use core::ptr::{self, NonNull};
 use core::slice;
 
 use crate::environment::Environment;
 use crate::error::{Error, Result};
-use crate::function::{Function, RawCall};
+use crate::function::{Function, NNM3Function, RawCall};
 use crate::runtime::Runtime;
 use crate::utils::eq_cstr_str;
 
@@ -77,13 +77,13 @@ impl<'env, 'rt> Module<'env, 'rt> {
         }
     }
 
-    unsafe fn link_func_impl(&self, m3_func: ffi::IM3Function, func: RawCall) {
+    unsafe fn link_func_impl(&self, mut m3_func: NNM3Function, func: RawCall) {
         let page = ffi::AcquireCodePageWithCapacity(self.rt.as_ptr(), 2);
         if page.is_null() {
             panic!("oom")
         } else {
-            (*m3_func).compiled = ffi::GetPagePC(page);
-            (*m3_func).module = self.raw;
+            m3_func.as_mut().compiled = ffi::GetPagePC(page);
+            m3_func.as_mut().module = self.raw;
             ffi::EmitWord_impl(page, ffi::op_CallRawFunction as _);
             ffi::EmitWord_impl(page, func as _);
 
@@ -91,28 +91,22 @@ impl<'env, 'rt> Module<'env, 'rt> {
         }
     }
 
-    fn find_import_function(
-        &self,
-        module_name: &str,
-        function_name: &str,
-    ) -> Result<ffi::IM3Function> {
-        if let Some(func) = unsafe {
+    fn find_import_function(&self, module_name: &str, function_name: &str) -> Result<NNM3Function> {
+        unsafe {
             slice::from_raw_parts_mut(
                 if (*self.raw).functions.is_null() {
-                    ptr::NonNull::dangling().as_ptr()
+                    NonNull::dangling().as_ptr()
                 } else {
                     (*self.raw).functions
                 },
                 (*self.raw).numFunctions as usize,
             )
-            .iter_mut()
-            .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
-            .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
-        } {
-            Ok(func)
-        } else {
-            Err(Error::FunctionNotFound)
         }
+        .iter_mut()
+        .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
+        .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
+        .map(NonNull::from)
+        .ok_or(Error::FunctionNotFound)
     }
 
     pub fn find_function<ARGS, RET>(
@@ -123,10 +117,10 @@ impl<'env, 'rt> Module<'env, 'rt> {
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
-        if let Some(func) = unsafe {
+        let func = unsafe {
             slice::from_raw_parts_mut(
                 if (*self.raw).functions.is_null() {
-                    ptr::NonNull::dangling().as_ptr()
+                    NonNull::dangling().as_ptr()
                 } else {
                     (*self.raw).functions
                 },
@@ -134,11 +128,10 @@ impl<'env, 'rt> Module<'env, 'rt> {
             )
             .iter_mut()
             .find(|func| eq_cstr_str(func.name, function_name))
-        } {
-            Function::from_raw(self.rt, func).and_then(Function::compile)
-        } else {
-            Err(Error::FunctionNotFound)
-        }
+            .map(NonNull::from)
+            .ok_or(Error::FunctionNotFound)?
+        };
+        Function::from_raw(self.rt, func).and_then(Function::compile)
     }
 
     #[cfg(feature = "wasi")]

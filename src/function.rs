@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use core::ptr::NonNull;
 use core::str;
 
 use crate::error::{Error, Result};
@@ -13,9 +14,11 @@ pub type RawCall = unsafe extern "C" fn(
     _mem: *mut libc::c_void,
 ) -> *const libc::c_void;
 
+pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
+
 #[derive(Debug)]
 pub struct Function<'env, 'rt, ARGS, RET> {
-    raw: ffi::IM3Function,
+    raw: NNM3Function,
     rt: &'rt Runtime<'env>,
     _pd: PhantomData<(ARGS, RET)>,
 }
@@ -25,19 +28,18 @@ where
     ARGS: WasmArgs,
     RET: WasmType,
 {
-    pub(crate) fn validate_sig(func: ffi::IM3Function) -> bool {
-        debug_assert!(!func.is_null());
+    pub(crate) fn validate_sig(mut func: NNM3Function) -> bool {
         let &ffi::M3FuncType {
             returnType: ret,
             argTypes: ref args,
             numArgs: num,
             ..
-        } = unsafe { &*(*func).funcType };
+        } = unsafe { &*func.as_mut().funcType };
         RET::TYPE_INDEX == ret && ARGS::validate_types(&args[..num as usize])
     }
 
     #[inline]
-    pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: ffi::IM3Function) -> Result<Self> {
+    pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: NNM3Function) -> Result<Self> {
         if Self::validate_sig(raw) {
             let this = Function {
                 raw,
@@ -53,19 +55,19 @@ where
     #[inline]
     pub(crate) fn compile(self) -> Result<Self> {
         unsafe {
-            if (*self.raw).compiled.is_null() {
-                Error::from_ffi_res(ffi::Compile_Function(self.raw))?;
+            if self.raw.as_ref().compiled.is_null() {
+                Error::from_ffi_res(ffi::Compile_Function(self.raw.as_ptr()))?;
             }
         };
         Ok(self)
     }
 
     pub fn import_module_name(&self) -> &str {
-        unsafe { cstr_to_str((*self.raw).import.moduleUtf8) }
+        unsafe { cstr_to_str(self.raw.as_ref().import.moduleUtf8) }
     }
 
     pub fn name(&self) -> &str {
-        unsafe { cstr_to_str((*self.raw).name) }
+        unsafe { cstr_to_str(self.raw.as_ref().name) }
     }
 
     fn call_impl(&self, args: ARGS) -> Result<RET> {
@@ -73,7 +75,7 @@ where
         args.put_on_stack(stack);
         let ret = unsafe {
             Self::call_impl_(
-                (*self.raw).compiled,
+                self.raw.as_ref().compiled,
                 stack.as_mut_ptr(),
                 self.rt.mallocated(),
                 666,

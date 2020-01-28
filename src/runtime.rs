@@ -59,12 +59,12 @@ impl<'env> Runtime<'env> {
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
-        let mut module = unsafe { (*self.raw).modules };
-        while !module.is_null() {
-            match Module::from_raw(self, module).find_function::<ARGS, RET>(name) {
+        let mut module = unsafe { ptr::NonNull::new((*self.raw).modules) };
+        while let Some(raw_mod) = module {
+            match Module::from_raw(self, raw_mod.as_ptr()).find_function::<ARGS, RET>(name) {
                 res @ Ok(_) => return res,
                 res @ Err(Error::InvalidFunctionSignature) => return res,
-                _ => module = unsafe { (*module).next },
+                _ => module = unsafe { ptr::NonNull::new(raw_mod.as_ref().next) },
             }
         }
         Err(Error::FunctionNotFound)
@@ -82,7 +82,7 @@ impl<'env> Runtime<'env> {
         let mut size = 0;
         let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
         slice::from_raw_parts(
-            if size == 0 {
+            if size == 0 || ptr.is_null() {
                 ptr::NonNull::dangling().as_ptr()
             } else {
                 ptr

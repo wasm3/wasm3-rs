@@ -9,7 +9,7 @@ pub unsafe fn bytes_till_null<'a>(ptr: *const libc::c_char) -> &'a [u8] {
         ptr = ptr.add(1);
         len += 1;
     }
-    core::slice::from_raw_parts(start, len - 1)
+    core::slice::from_raw_parts(start, len)
 }
 
 pub unsafe fn cstr_to_str<'a>(ptr: *const libc::c_char) -> &'a str {
@@ -29,5 +29,72 @@ pub unsafe fn eq_cstr_str(cstr: *const libc::c_char, str: &str) -> bool {
             (Some(&byte), cbyte) if cbyte == byte => cstr = cstr.add(1),
             _ => break false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bytes_till_null() {
+        let bytes_null = b"abcdef\0";
+        let bytes = b"abcdef";
+        assert_eq!(
+            unsafe { bytes_till_null(bytes_null.as_ptr().cast()) },
+            bytes
+        );
+    }
+
+    #[test]
+    fn test_bytes_till_null_null() {
+        assert_eq!(unsafe { bytes_till_null(core::ptr::null()) }, &[]);
+    }
+
+    #[test]
+    fn test_cstr_to_str() {
+        let cstr = b"abcdef\0";
+        let str = "abcdef";
+        assert_eq!(unsafe { cstr_to_str(cstr.as_ptr().cast()) }, str);
+    }
+
+    #[test]
+    fn test_eq_cstr_str_is_eq() {
+        let cstr = b"abcdef\0";
+        let str = "abcdef";
+        assert!(unsafe { eq_cstr_str(cstr.as_ptr().cast(), str) });
+    }
+
+    #[test]
+    fn test_eq_cstr_str_is_null() {
+        assert!(unsafe { !eq_cstr_str(core::ptr::null(), "") });
+    }
+
+    #[test]
+    fn test_eq_cstr_str_is_neq() {
+        let cstr = b"abcdef\0";
+        let str = "abcgef";
+        assert!(unsafe { !eq_cstr_str(cstr.as_ptr().cast(), str) });
+    }
+
+    #[test]
+    fn test_eq_cstr_str_is_neq_null() {
+        let cstr = b"abcdef\0";
+        let str = "abcdef\0";
+        assert!(unsafe { !eq_cstr_str(cstr.as_ptr().cast(), str) });
+    }
+
+    #[test]
+    fn test_eq_cstr_str_is_neq_beyond() {
+        let cstr = b"abcdef\0";
+        let str = "abcdef\0agsdg";
+        assert!(unsafe { !eq_cstr_str(cstr.as_ptr().cast(), str) });
+    }
+
+    #[test]
+    fn test_eq_cstr_str_is_neq_short() {
+        let cstr = b"abcdef\0";
+        let str = "abc";
+        assert!(unsafe { !eq_cstr_str(cstr.as_ptr().cast(), str) });
     }
 }

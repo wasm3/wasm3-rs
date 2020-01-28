@@ -3,18 +3,23 @@ mod private {
     pub struct Seal;
 }
 
-pub trait WasmType: Sized /*+ Sealed */ {
+/// Trait implemented by types that can be passed to and from wasm.
+pub trait WasmType: Sized {
     #[doc(hidden)]
     const TYPE_INDEX: u8;
     #[doc(hidden)]
-    fn fetch_from_stack(stack: &[u64]) -> Self;
+    fn from_u64(val: u64) -> Self;
     #[doc(hidden)]
     fn sealed_() -> private::Seal;
 }
+
+/// Tait implemented by types that can be passed to wasm.
 pub trait WasmArg: WasmType {
     #[doc(hidden)]
     fn into_u64(self) -> u64;
 }
+
+/// Helper tait implemented by tuples to emulate "variadic generics".
 pub trait WasmArgs {
     #[doc(hidden)]
     fn put_on_stack(self, stack: &mut [u64]);
@@ -28,8 +33,8 @@ impl WasmType for i32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
     #[doc(hidden)]
-    fn fetch_from_stack(stack: &[u64]) -> Self {
-        (stack[0] & 0xFFFF_FFFF) as i32
+    fn from_u64(val: u64) -> Self {
+        (val & 0xFFFF_FFFF) as i32
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -47,8 +52,8 @@ impl WasmType for u32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
     #[doc(hidden)]
-    fn fetch_from_stack(stack: &[u64]) -> Self {
-        (stack[0] & 0xFFFF_FFFF) as u32
+    fn from_u64(val: u64) -> Self {
+        (val & 0xFFFF_FFFF) as u32
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -66,8 +71,8 @@ impl WasmType for i64 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
     #[doc(hidden)]
-    fn fetch_from_stack(stack: &[u64]) -> Self {
-        stack[0] as i64
+    fn from_u64(val: u64) -> Self {
+        val as i64
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -85,8 +90,8 @@ impl WasmType for u64 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
     #[doc(hidden)]
-    fn fetch_from_stack(stack: &[u64]) -> Self {
-        stack[0]
+    fn from_u64(val: u64) -> Self {
+        val
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -104,8 +109,8 @@ impl WasmType for f32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_f32 as u8;
     #[doc(hidden)]
-    fn fetch_from_stack(stack: &[u64]) -> Self {
-        f32::from_le_bytes(((stack[0] & 0xFFFF_FFFF) as u32).to_le_bytes())
+    fn from_u64(val: u64) -> Self {
+        f32::from_ne_bytes(((val & 0xFFFF_FFFF) as u32).to_ne_bytes())
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -115,7 +120,7 @@ impl WasmType for f32 {
 impl WasmArg for f32 {
     #[doc(hidden)]
     fn into_u64(self) -> u64 {
-        u32::from_le_bytes(self.to_le_bytes()) as u64
+        u32::from_ne_bytes(self.to_ne_bytes()) as u64
     }
 }
 
@@ -123,8 +128,8 @@ impl WasmType for f64 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_f64 as u8;
     #[doc(hidden)]
-    fn fetch_from_stack(stack: &[u64]) -> Self {
-        f64::from_le_bytes(stack[0].to_le_bytes())
+    fn from_u64(val: u64) -> Self {
+        f64::from_ne_bytes(val.to_ne_bytes())
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -134,7 +139,7 @@ impl WasmType for f64 {
 impl WasmArg for f64 {
     #[doc(hidden)]
     fn into_u64(self) -> u64 {
-        u64::from_le_bytes(self.to_le_bytes())
+        u64::from_ne_bytes(self.to_ne_bytes())
     }
 }
 
@@ -142,13 +147,14 @@ impl WasmType for () {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_void as u8;
     #[doc(hidden)]
-    fn fetch_from_stack(_: &[u64]) -> Self {}
+    fn from_u64(_: u64) -> Self {}
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
     }
 }
 
+/// Parameterless functions
 impl WasmArgs for () {
     #[doc(hidden)]
     fn put_on_stack(self, _: &mut [u64]) {}
@@ -162,6 +168,7 @@ impl WasmArgs for () {
     }
 }
 
+/// Unary functions
 impl<T> WasmArgs for T
 where
     T: WasmArg,
@@ -190,12 +197,12 @@ macro_rules! args_impl {
         where $($types: WasmArg,)*
         {
             #[doc(hidden)]
-            fn put_on_stack(self, stack: &mut [u64]) {
+            fn put_on_stack(self, _stack: &mut [u64]) {
                 #[allow(non_snake_case)]
                 let ($($types,)*) = self;
-                let mut stack_iter = stack.iter_mut();
                 $(
-                    stack_iter.next().map(|place| *place = $types.into_u64());
+                    let (slot, _stack) = _stack.split_first_mut().unwrap();
+                    *slot = $types.into_u64();
                 )*
             }
             #[doc(hidden)]
@@ -212,3 +219,78 @@ macro_rules! args_impl {
     };
 }
 args_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_put_on_stack_single() {
+        let stack = &mut [0u64, 0, 0, 0];
+        15u64.put_on_stack(stack);
+        assert_eq!(stack, &[15, 0, 0, 0])
+    }
+    #[test]
+    fn test_put_on_stack_double() {
+        let stack = &mut [0u64, 0, 0, 0];
+        (15u64, 32u64).put_on_stack(stack);
+        assert_eq!(stack, &[15, 32, 0, 0])
+    }
+    #[test]
+    fn test_put_on_stack_quintuple() {
+        let stack = &mut [0u64, 0, 0, 0, 0, 0];
+        (15u64, 315u64, 0u64, 151_652u64, 32u64).put_on_stack(stack);
+        assert_eq!(stack, &[15, 315, 0, 151_652, 32, 0])
+    }
+
+    #[test]
+    fn test_validate_types_single() {
+        assert!(f64::validate_types(&[
+            ffi::_bindgen_ty_1::c_m3Type_f64 as u8
+        ]));
+    }
+
+    #[test]
+    fn test_validate_types_single_fail() {
+        assert!(!f32::validate_types(&[
+            ffi::_bindgen_ty_1::c_m3Type_f64 as u8
+        ]));
+    }
+
+    #[test]
+    fn test_validate_types_double() {
+        assert!(<(f64, u32)>::validate_types(&[
+            ffi::_bindgen_ty_1::c_m3Type_f64 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_i32 as u8
+        ]));
+    }
+
+    #[test]
+    fn test_validate_types_double_fail() {
+        assert!(!<(f32, u64)>::validate_types(&[
+            ffi::_bindgen_ty_1::c_m3Type_i64 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_f32 as u8
+        ]));
+    }
+
+    #[test]
+    fn test_validate_types_quintuple() {
+        assert!(<(f64, u32, i32, i64, f32)>::validate_types(&[
+            ffi::_bindgen_ty_1::c_m3Type_f64 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_i64 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_f32 as u8
+        ]));
+    }
+
+    #[test]
+    fn test_validate_types_quintuple_fail() {
+        assert!(!<(f64, u32, i32, i64, f32)>::validate_types(&[
+            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_i64 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_f32 as u8,
+            ffi::_bindgen_ty_1::c_m3Type_f64 as u8
+        ]));
+    }
+}

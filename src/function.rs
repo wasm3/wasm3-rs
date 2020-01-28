@@ -84,7 +84,7 @@ where
         };
         match self.rt.rt_error() {
             Err(e) if ret.is_null() => Err(e),
-            _ => Ok(RET::fetch_from_stack(stack)),
+            _ => Ok(RET::from_u64(stack[0])),
         }
     }
 

@@ -23,7 +23,7 @@ fn gen_bindings() -> Result<()> {
             .map(|entry| entry.path())
             .filter(|path| path.extension().and_then(OsStr::to_str) == Some("h"))
         {
-            writeln!(file, "#include <{}>", path.to_str().unwrap()).unwrap();
+            writeln!(file, "#include \"{}\"", path.to_str().unwrap()).unwrap();
         }
     }
 
@@ -35,6 +35,7 @@ fn gen_bindings() -> Result<()> {
         .arg("--ctypes-prefix")
         .arg("libc")
         .arg("--no-layout-tests")
+        .arg("--default-enum-style=moduleconsts")
         .arg("--no-doc-comments")
         .arg("--whitelist-function")
         .arg(whitelist_regex)

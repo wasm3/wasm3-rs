@@ -8,6 +8,7 @@ use crate::function::Function;
 use crate::module::{Module, ParsedModule};
 use crate::utils::eq_cstr_str;
 
+/// A runtime context for wasm3 modules.
 #[derive(Debug)]
 pub struct Runtime<'env> {
     raw: ffi::IM3Runtime,
@@ -15,6 +16,7 @@ pub struct Runtime<'env> {
 }
 
 impl<'env> Runtime<'env> {
+    /// Creates a new runtime with the given stack size in slots.
     pub fn new(environment: &'env Environment, stack_size: u32) -> Self {
         unsafe {
             Runtime {
@@ -24,11 +26,13 @@ impl<'env> Runtime<'env> {
         }
     }
 
+    /// Parses and loads a module from bytes.
     pub fn parse_and_load_module<'rt>(&'rt self, bytes: &[u8]) -> Result<Module<'env, 'rt>> {
         Module::parse(self.environment, bytes)
             .and_then(|module| self.load_module(module).map_err(|(_, err)| err))
     }
 
+    /// Loads a parsed module returning the module if unsuccessful.
     pub fn load_module<'rt>(
         &'rt self,
         module: ParsedModule<'env>,
@@ -36,6 +40,7 @@ impl<'env> Runtime<'env> {
         if let Err(err) =
             Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw, module.as_ptr()) })
         {
+            // can the module be reused on failure actually?
             Err((module, err))
         } else {
             let raw = module.as_ptr();
@@ -52,6 +57,8 @@ impl<'env> Runtime<'env> {
         unsafe { Error::from_ffi_res((*self.raw).runtimeError) }
     }
 
+    /// Looks up a function by the given name in the loaded modules of this runtime.
+    /// If the function signature does not fit a FunctionMismatchError will be returned.
     pub fn find_function<'rt, ARGS, RET>(
         &'rt self,
         name: &str,
@@ -69,7 +76,9 @@ impl<'env> Runtime<'env> {
             .unwrap_or(Err(Error::FunctionNotFound))
     }
 
-    /// Using this over searching through [`modules`] is a bit more efficient.
+    /// Searches for a module with the given name in the runtime's loaded modules.
+    /// Using this over searching through [`modules`] is a bit more efficient as it
+    /// works on the underlying CStrings directly and doesn't require an upfront length calculation.
     pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'env, 'rt>> {
         unsafe {
             let mut module = ptr::NonNull::new((*self.raw).modules);
@@ -83,6 +92,7 @@ impl<'env> Runtime<'env> {
         }
     }
 
+    /// Returns an iterator over the runtime's loaded modules.
     pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'env, 'rt>> + 'rt {
         // pointer could get invalidated if modules can become unloaded
         let mut module = unsafe { ptr::NonNull::new((*self.raw).modules) };
@@ -92,14 +102,16 @@ impl<'env> Runtime<'env> {
         })
     }
 
+    /// Prints the runtime's information to stdout.
     #[inline]
     pub fn print_info(&self) {
         unsafe { ffi::m3_PrintRuntimeInfo(self.raw) };
     }
 
+    /// Returns the raw memory of this runtime.
+    ///
     /// # Safety
-    /// This function is unsafe because it allows aliasing to happen.
-    /// The underlying memory may change if a runtimes exposed function is called.
+    /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
     pub unsafe fn memory(&self) -> &[u8] {
         let mut size = 0;
         let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
@@ -113,9 +125,10 @@ impl<'env> Runtime<'env> {
         )
     }
 
+    /// Returns the stack of this runtime.
+    ///
     /// # Safety
-    /// This function is unsafe because it allows aliasing to happen.
-    /// The underlying memory may change if a runtimes exposed function is called.
+    /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
     pub unsafe fn stack(&self) -> &[u64] {
         slice::from_raw_parts(
             (*self.raw).stack as ffi::m3stack_t,
@@ -123,9 +136,11 @@ impl<'env> Runtime<'env> {
         )
     }
 
+    /// Returns the stack of this runtime.
+    ///
     /// # Safety
-    /// This function is unsafe because it allows aliasing to happen.
-    /// The underlying memory may change if a runtimes exposed function is called.
+    /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed
+    /// and because this function allows aliasing to happen if called multiple times.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn stack_mut(&self) -> &mut [u64] {
         slice::from_raw_parts_mut(

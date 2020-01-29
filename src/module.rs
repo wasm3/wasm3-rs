@@ -8,12 +8,14 @@ use crate::function::{Function, NNM3Function, RawCall};
 use crate::runtime::Runtime;
 use crate::utils::{cstr_to_str, eq_cstr_str};
 
+/// A parsed module which can be loaded into a [`Runtime`].
 pub struct ParsedModule<'env> {
     raw: ffi::IM3Module,
     _pd: PhantomData<&'env Environment>,
 }
 
 impl<'env> ParsedModule<'env> {
+    /// Parses a wasm module from raw bytes.
     pub fn parse(environment: &'env Environment, bytes: &[u8]) -> Result<Self> {
         assert!(bytes.len() <= !0u32 as usize);
         let mut module = ptr::null_mut();
@@ -42,6 +44,7 @@ impl Drop for ParsedModule<'_> {
     }
 }
 
+/// A loaded module belonging to a specific runtime. Allows for linking and looking up functions.
 // needs no drop as loaded modules will be cleaned up by the runtime
 pub struct Module<'env, 'rt> {
     raw: ffi::IM3Module,
@@ -53,11 +56,13 @@ impl<'env, 'rt> Module<'env, 'rt> {
         Module { raw, rt }
     }
 
+    /// Parses a wasm module from raw bytes.
     #[inline]
     pub fn parse(environment: &'env Environment, bytes: &[u8]) -> Result<ParsedModule<'env>> {
         ParsedModule::parse(environment, bytes)
     }
 
+    /// Links the given function to the corresponding module and function name.
     pub fn link_function<ARGS, RET>(
         &mut self,
         module_name: &str,
@@ -109,6 +114,8 @@ impl<'env, 'rt> Module<'env, 'rt> {
         }
     }
 
+    /// Looks up a function by the given name in this module.
+    /// If the function signature does not fit a FunctionMismatchError will be returned.
     pub fn find_function<ARGS, RET>(
         &self,
         function_name: &str,
@@ -134,6 +141,8 @@ impl<'env, 'rt> Module<'env, 'rt> {
         Function::from_raw(self.rt, func).and_then(Function::compile)
     }
 
+    /// Looks up a function by index.
+    /// If the function signature does not fit a FunctionMismatchError will be returned.
     pub fn function<ARGS, RET>(
         &self,
         function_index: usize,
@@ -158,15 +167,18 @@ impl<'env, 'rt> Module<'env, 'rt> {
         Function::from_raw(self.rt, func).and_then(Function::compile)
     }
 
+    /// The name of this module.
     pub fn name(&self) -> &str {
         unsafe { cstr_to_str((*self.raw).name) }
     }
 
+    /// Links wasi to this module.
     #[cfg(feature = "wasi")]
     pub fn link_wasi(&mut self) {
         unsafe { ffi::m3_LinkWASI(self.raw) };
     }
 
+    /// Links libc to this module.
     pub fn link_libc(&mut self) {
         unsafe { ffi::m3_LinkLibC(self.raw) };
     }

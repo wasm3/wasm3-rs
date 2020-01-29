@@ -16,6 +16,7 @@ pub type RawCall = unsafe extern "C" fn(
 
 pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 
+/// A callable wasm3 function.
 #[derive(Debug)]
 pub struct Function<'env, 'rt, ARGS, RET> {
     raw: NNM3Function,
@@ -62,10 +63,12 @@ where
         Ok(self)
     }
 
+    /// The name of the import module of this function.
     pub fn import_module_name(&self) -> &str {
         unsafe { cstr_to_str(self.raw.as_ref().import.moduleUtf8) }
     }
 
+    /// The name of this function.
     pub fn name(&self) -> &str {
         unsafe { cstr_to_str(self.raw.as_ref().name) }
     }
@@ -129,6 +132,8 @@ where
     RET: WasmType,
     T: crate::WasmArg,
 {
+    /// Calls this function with the given parameter.
+    /// This is implemented with variable arguments depending on the functions ARGS type.
     #[inline]
     pub fn call(&self, t: T) -> Result<RET> {
         self.call_impl(t)
@@ -139,6 +144,7 @@ impl<'env, 'rt, RET> Function<'env, 'rt, (), RET>
 where
     RET: WasmType,
 {
+    /// Calls this paramterless function.
     #[inline]
     pub fn call(&self) -> Result<RET> {
         self.call_impl(())

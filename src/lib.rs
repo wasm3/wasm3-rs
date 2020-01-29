@@ -11,11 +11,13 @@ mod macros;
 pub use self::macros::*;
 mod utils;
 
+/// Print general wasm3 info to stdout.
 #[inline]
 pub fn print_m3_info() {
     unsafe { ffi::m3_PrintM3Info() };
 }
 
+/// Print wasm3 profiler info to stdout.
 #[inline]
 pub fn print_profiler_info() {
     unsafe { ffi::m3_PrintProfilerInfo() };

@@ -99,8 +99,18 @@ where
         _r0: ffi::m3reg_t,
         _fp0: f64,
     ) -> ffi::m3ret_t {
-        ffi::m3Yield();
-        (*_pc.cast::<ffi::IM3Operation>()).unwrap()(_pc.add(1), _sp, _mem, _r0, _fp0)
+        let possible_trap = ffi::m3_Yield();
+        if !possible_trap.is_null() {
+            possible_trap.cast()
+        } else {
+            (*_pc.cast::<ffi::IM3Operation>()).expect("IM3Operation was null")(
+                _pc.add(1),
+                _sp,
+                _mem,
+                _r0,
+                _fp0,
+            )
+        }
     }
 }
 

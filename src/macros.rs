@@ -5,7 +5,7 @@ macro_rules! make_func_wrapper {
     // ptype is an ident because we still want to match on it later -- \/                  rtype too -- \/
     ( $wis:vis $wrapper_name:ident: $original:ident( $( $pname:ident: $ptype:ident ),* $( , )? ) $( -> $rtype:ident )?) => {
         $wis unsafe extern "C" fn $wrapper_name(
-            _rt: ffi::IM3Runtime,
+            _rt: $crate::wasm3_sys::IM3Runtime,
             _sp: *mut u64,
             _mem: *mut core::ffi::c_void,
         ) -> *const core::ffi::c_void {
@@ -18,7 +18,7 @@ macro_rules! make_func_wrapper {
             $(
                 $crate::put_stack_return!(ssp <- ret as $rtype);
             )?
-            ffi::m3Err_none as _
+            $crate::wasm3_sys::m3Err_none as _
         }
     };
 }

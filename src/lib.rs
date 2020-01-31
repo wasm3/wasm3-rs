@@ -11,6 +11,8 @@ mod macros;
 pub use self::macros::*;
 mod utils;
 
+pub use ffi as wasm3_sys;
+
 /// Print general wasm3 info to stdout.
 #[inline]
 pub fn print_m3_info() {

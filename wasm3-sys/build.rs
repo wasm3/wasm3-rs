@@ -7,8 +7,7 @@ use std::path::PathBuf;
 static WASM3_SOURCE: &str = "wasm3/source";
 
 fn gen_bindings() {
-    let whitelist_regex =        // | These three are needed to link raw functions manually, allowing us to avoid CString allocations
-        "((?:I|c_)?[Mm]3.*)|.*Page.*|EmitWord_impl|op_CallRawFunction|Compile_Function";
+    let whitelist_regex = "(?:I|c_)?[Mm]3.*";
 
     let root_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());

@@ -5,6 +5,7 @@ use core::str;
 use crate::error::{Error, Result};
 use crate::runtime::Runtime;
 use crate::utils::cstr_to_str;
+use crate::wasm3_priv;
 use crate::{WasmArgs, WasmType};
 
 // redefine of ffi::RawCall without the Option<T> around it
@@ -57,7 +58,7 @@ where
     pub(crate) fn compile(self) -> Result<Self> {
         unsafe {
             if self.raw.as_ref().compiled.is_null() {
-                Error::from_ffi_res(ffi::Compile_Function(self.raw.as_ptr()))?;
+                Error::from_ffi_res(wasm3_priv::Compile_Function(self.raw.as_ptr()))?;
             }
         };
         Ok(self)
@@ -154,7 +155,7 @@ impl<'env, 'rt, RET> Function<'env, 'rt, (), RET>
 where
     RET: WasmType,
 {
-    /// Calls this paramterless function.
+    /// Calls this parameterless function.
     #[inline]
     pub fn call(&self) -> Result<RET> {
         self.call_impl(())

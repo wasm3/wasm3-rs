@@ -7,6 +7,7 @@ use crate::error::{Error, Result};
 use crate::function::{Function, NNM3Function, RawCall};
 use crate::runtime::Runtime;
 use crate::utils::{cstr_to_str, eq_cstr_str};
+use crate::wasm3_priv;
 
 /// A parsed module which can be loaded into a [`Runtime`].
 pub struct ParsedModule<'env> {
@@ -83,16 +84,16 @@ impl<'env, 'rt> Module<'env, 'rt> {
     }
 
     unsafe fn link_func_impl(&self, mut m3_func: NNM3Function, func: RawCall) {
-        let page = ffi::AcquireCodePageWithCapacity(self.rt.as_ptr(), 2);
+        let page = wasm3_priv::AcquireCodePageWithCapacity(self.rt.as_ptr(), 2);
         if page.is_null() {
             panic!("oom")
         } else {
-            m3_func.as_mut().compiled = ffi::GetPagePC(page);
+            m3_func.as_mut().compiled = wasm3_priv::GetPagePC(page);
             m3_func.as_mut().module = self.raw;
-            ffi::EmitWord_impl(page, ffi::op_CallRawFunction as _);
-            ffi::EmitWord_impl(page, func as _);
+            wasm3_priv::EmitWord_impl(page, crate::wasm3_priv::op_CallRawFunction as _);
+            wasm3_priv::EmitWord_impl(page, func as _);
 
-            ffi::ReleaseCodePage(self.rt.as_ptr(), page);
+            wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);
         }
     }
 

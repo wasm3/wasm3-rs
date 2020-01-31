@@ -5,11 +5,13 @@ pub mod error;
 pub mod function;
 pub mod module;
 pub mod runtime;
+
 mod ty;
 pub use self::ty::{WasmArg, WasmArgs, WasmType};
 mod macros;
 pub use self::macros::*;
 mod utils;
+pub(crate) mod wasm3_priv;
 
 pub use ffi as wasm3_sys;
 

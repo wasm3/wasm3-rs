@@ -116,11 +116,13 @@ where
 }
 
 macro_rules! func_call_impl {
-    ($($types:ident),*) => {
-        func_call_impl!(@rec __DUMMY__T, $($types),*);
+    ($($types:ident),*) => { func_call_impl!(@rec [$($types,)*] []); };
+    (@rec [] [$($types:ident,)*]) => { func_call_impl!(@do_impl $($types,)*); };
+    (@rec [$head:ident, $($tail:ident,)*] [$($types:ident,)*]) => {
+        func_call_impl!(@do_impl $($types,)*);
+        func_call_impl!(@rec [$($tail,)*] [$($types,)* $head,]);
     };
-    (@rec $types:ident) => {};
-    (@rec $_:ident, $($types:ident),*) => {
+    (@do_impl $($types:ident,)*) => {
         #[doc(hidden)] // this really pollutes the documentation
         impl<'env, 'rt, $($types,)* RET> Function<'env, 'rt, ($($types,)*), RET>
         where
@@ -133,31 +135,19 @@ macro_rules! func_call_impl {
                 self.call_impl(($($types,)*))
             }
         }
-        func_call_impl!(@rec $($types),*);
     };
 }
 func_call_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
 
-impl<'env, 'rt, T, RET> Function<'env, 'rt, T, RET>
+impl<'env, 'rt, ARG, RET> Function<'env, 'rt, ARG, RET>
 where
     RET: WasmType,
-    T: crate::WasmArg,
+    ARG: crate::WasmArg,
 {
     /// Calls this function with the given parameter.
     /// This is implemented with variable arguments depending on the functions ARGS type.
     #[inline]
-    pub fn call(&self, t: T) -> Result<RET> {
-        self.call_impl(t)
-    }
-}
-
-impl<'env, 'rt, RET> Function<'env, 'rt, (), RET>
-where
-    RET: WasmType,
-{
-    /// Calls this parameterless function.
-    #[inline]
-    pub fn call(&self) -> Result<RET> {
-        self.call_impl(())
+    pub fn call(&self, arg: ARG) -> Result<RET> {
+        self.call_impl(arg)
     }
 }

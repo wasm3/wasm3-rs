@@ -188,11 +188,14 @@ where
 }
 
 macro_rules! args_impl {
-    ($($types:ident),*) => {
-        args_impl!(@rec __DUMMY__T, $($types),*);
+    ($($types:ident),*) => { args_impl!(@rec [$($types,)*] []); };
+    (@rec [] [$($types:ident,)*]) => { args_impl!(@do_impl $($types,)*); };
+    (@rec [$head:ident, $($tail:ident,)*] [$($types:ident,)*]) => {
+        args_impl!(@do_impl $($types,)*);
+        args_impl!(@rec [$($tail,)*] [$($types,)* $head,]);
     };
-    (@rec $types:ident) => {};
-    (@rec $_:ident, $($types:ident),*) => {
+    (@do_impl) => {/* catch the () case, since its implementation differs slightly */};
+    (@do_impl $($types:ident,)*) => {
         impl<$($types,)*> WasmArgs for ($($types,)*)
         where $($types: WasmArg,)*
         {
@@ -215,7 +218,6 @@ macro_rules! args_impl {
             #[doc(hidden)]
             fn sealed_() -> private::Seal { private::Seal }
         }
-        args_impl!(@rec $($types),*);
     };
 }
 args_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);

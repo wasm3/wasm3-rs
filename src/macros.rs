@@ -2,6 +2,27 @@
 
 #[macro_export]
 macro_rules! make_func_wrapper {
+    ( $wis:vis $wrapper_name:ident: $original:ident( $( $pname:ident: $ptype:ident ),* $( , )? ) -> TrappedResult<$rtype:ident>) => {
+        $wis unsafe extern "C" fn $wrapper_name(
+            _rt: $crate::wasm3_sys::IM3Runtime,
+            _sp: *mut u64,
+            _mem: *mut core::ffi::c_void,
+        ) -> *const core::ffi::c_void {
+            let ssp = _sp;
+            $(
+                let $pname = $crate::read_stack_param!(_sp -> $ptype);
+                let _sp = _sp.add(1);
+            )*
+            let ret = $original( $( $pname ),* );
+            match ret {
+                Ok(ret) => {
+                    $crate::put_stack_return!(ssp <- ret as $rtype);
+                    $crate::wasm3_sys::m3Err_none as _
+                },
+                Err(trap) => trap.as_ptr() as _
+            }
+        }
+    };
     // ptype is an ident because we still want to match on it later -- \/                  rtype too -- \/
     ( $wis:vis $wrapper_name:ident: $original:ident( $( $pname:ident: $ptype:ident ),* $( , )? ) $( -> $rtype:ident )?) => {
         $wis unsafe extern "C" fn $wrapper_name(

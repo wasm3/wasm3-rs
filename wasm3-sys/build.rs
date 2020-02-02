@@ -12,6 +12,8 @@ fn gen_bindings() {
     let root_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
+    // TODO: we currently need the field definitions of the structs of wasm3. These aren't exposed
+    // in the wasm3.h header so we have to generate bindings for more.
     let wrapper_file = root_path.join("wrapper.h");
 
     let mut buffer = String::new();

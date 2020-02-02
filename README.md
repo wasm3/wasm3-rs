@@ -2,7 +2,16 @@
 
 Rust wrapper for [WASM3](https://github.com/wasm3/wasm3).
 
-This is currently very much work in progress and may or may not be sound.
+This is currently work in progress and may or may not be sound.
+
+## Usage
+
+The crate has yet to be published on crates.io(there are a few things I wanna get done before publishing still), due to this one currently has to specify the crate as a git dependency:
+
+```toml
+[dependencies]
+wasm3 = { git = "https://github.com/Veykril/wasm3-rs.git" }
+```
 
 ## Sample
 

@@ -1,4 +1,6 @@
+use core::cell::UnsafeCell;
 use core::mem;
+use core::pin::Pin;
 use core::ptr;
 use core::slice;
 
@@ -8,11 +10,15 @@ use crate::function::Function;
 use crate::module::{Module, ParsedModule};
 use crate::utils::eq_cstr_str;
 
+type PinnedAnyClosure = Pin<Box<dyn std::any::Any + 'static>>;
+
 /// A runtime context for wasm3 modules.
 #[derive(Debug)]
 pub struct Runtime<'env> {
     raw: ffi::IM3Runtime,
     environment: &'env Environment,
+    // holds all linked closures so that they properly get disposed of when runtime drops
+    closure_store: UnsafeCell<Vec<PinnedAnyClosure>>,
 }
 
 impl<'env> Runtime<'env> {
@@ -22,6 +28,7 @@ impl<'env> Runtime<'env> {
             Runtime {
                 raw: ffi::m3_NewRuntime(environment.as_ptr(), stack_size, ptr::null_mut()),
                 environment,
+                closure_store: UnsafeCell::new(Vec::new()),
             }
         }
     }
@@ -55,6 +62,10 @@ impl<'env> Runtime<'env> {
 
     pub(crate) fn rt_error(&self) -> Result<()> {
         unsafe { Error::from_ffi_res((*self.raw).runtimeError) }
+    }
+
+    pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
+        unsafe { (*self.closure_store.get()).push(closure) };
     }
 
     /// Looks up a function by the given name in the loaded modules of this runtime.

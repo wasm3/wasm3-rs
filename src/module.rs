@@ -77,16 +77,15 @@ impl<'env, 'rt> Module<'env, 'rt> {
         let func = self.find_import_function(module_name, function_name)?;
         if Function::<'_, '_, ARGS, RET>::validate_sig(func) {
             unsafe { self.link_func_impl(func, f) }
-            Ok(())
         } else {
             Err(Error::InvalidFunctionSignature)
         }
     }
 
-    unsafe fn link_func_impl(&self, mut m3_func: NNM3Function, func: RawCall) {
+    unsafe fn link_func_impl(&self, mut m3_func: NNM3Function, func: RawCall) -> Result<()> {
         let page = wasm3_priv::AcquireCodePageWithCapacity(self.rt.as_ptr(), 2);
         if page.is_null() {
-            panic!("oom")
+            Error::from_ffi_res(ffi::m3Err_mallocFailedCodePage)
         } else {
             m3_func.as_mut().compiled = wasm3_priv::GetPagePC(page);
             m3_func.as_mut().module = self.raw;
@@ -94,6 +93,77 @@ impl<'env, 'rt> Module<'env, 'rt> {
             wasm3_priv::EmitWord_impl(page, func as _);
 
             wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);
+            Ok(())
+        }
+    }
+
+    pub fn link_closure<ARGS, RET, F>(
+        &mut self,
+        module_name: &str,
+        function_name: &str,
+        closure: F,
+    ) -> Result<()>
+    where
+        ARGS: crate::WasmArgs,
+        RET: crate::WasmType,
+        F: Fn(ARGS) -> RET + 'static,
+    {
+        let func = self.find_import_function(module_name, function_name)?;
+        if Function::<'_, '_, ARGS, RET>::validate_sig(func) {
+            let mut closure = Box::pin(closure);
+            unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
+            self.rt.push_closure(closure);
+            Ok(())
+        } else {
+            Err(Error::InvalidFunctionSignature)
+        }
+    }
+
+    unsafe fn link_closure_impl<ARGS, RET, F: Fn(ARGS) -> RET>(
+        &self,
+        mut m3_func: NNM3Function,
+        closure: *mut F,
+    ) -> Result<()>
+    where
+        ARGS: crate::WasmArgs,
+        RET: crate::WasmType,
+        F: Fn(ARGS) -> RET + 'static,
+    {
+        unsafe extern "C" fn _impl<ARGS, RET, F: Fn(ARGS) -> RET>(
+            runtime: ffi::IM3Runtime,
+            sp: *mut u64,
+            _mem: *mut cty::c_void,
+            closure: *mut cty::c_void,
+        ) -> *const cty::c_void
+        where
+            ARGS: crate::WasmArgs,
+            RET: crate::WasmType,
+            F: Fn(ARGS) -> RET + 'static,
+        {
+            // use https://doc.rust-lang.org/std/primitive.pointer.html#method.offset_from once stable
+            let stack_base = (*runtime).stack as ffi::m3stack_t;
+            let stack_occupied = (sp as usize - stack_base as usize) / core::mem::size_of::<u64>();
+            let stack =
+                slice::from_raw_parts_mut(sp, (*runtime).numStackSlots as usize - stack_occupied);
+
+            let args = ARGS::retrieve_from_stack(stack);
+            let ret = (&*closure.cast::<F>())(args);
+            ret.put_on_stack(stack);
+            ffi::m3Err_none as _
+        }
+
+        let page = wasm3_priv::AcquireCodePageWithCapacity(self.rt.as_ptr(), 3);
+        if page.is_null() {
+            Error::from_ffi_res(ffi::m3Err_mallocFailedCodePage)
+        } else {
+            m3_func.as_mut().compiled = wasm3_priv::GetPagePC(page);
+            m3_func.as_mut().module = self.raw;
+            wasm3_priv::EmitWord_impl(page, crate::wasm3_priv::op_CallRawFunctionEx as _);
+            wasm3_priv::EmitWord_impl(page, _impl::<ARGS, RET, F> as _);
+            wasm3_priv::EmitWord_impl(page, closure.cast());
+
+            wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);
+            Ok(())
         }
     }
 

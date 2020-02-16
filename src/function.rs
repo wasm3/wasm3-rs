@@ -122,6 +122,7 @@ macro_rules! func_call_impl {
         func_call_impl!(@do_impl $($types,)*);
         func_call_impl!(@rec [$($tail,)*] [$($types,)* $head,]);
     };
+    (@do_impl) => {};
     (@do_impl $($types:ident,)*) => {
         #[doc(hidden)] // this really pollutes the documentation
         impl<'env, 'rt, $($types,)* RET> Function<'env, 'rt, ($($types,)*), RET>
@@ -149,5 +150,17 @@ where
     #[inline]
     pub fn call(&self, arg: ARG) -> Result<RET> {
         self.call_impl(arg)
+    }
+}
+
+impl<'env, 'rt, RET> Function<'env, 'rt, (), RET>
+where
+    RET: WasmType,
+{
+    /// Calls this function.
+    /// This is implemented with variable arguments depending on the functions ARGS type.
+    #[inline]
+    pub fn call(&self) -> Result<RET> {
+        self.call_impl(())
     }
 }

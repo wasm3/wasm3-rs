@@ -12,7 +12,7 @@ fn main() {
     )
     .unwrap();
 
-    let mut module = rt.load_module(module).map_err(|(_, e)| e).unwrap();
+    let mut module = rt.load_module(module).unwrap();
     module
         .link_function::<(), u64>("time", "millis", millis_wrap)
         .unwrap();

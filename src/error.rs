@@ -82,6 +82,7 @@ pub enum Error {
     InvalidFunctionSignature,
     FunctionNotFound,
     ModuleNotFound,
+    ModuleLoadEnvMismatch,
 }
 
 impl Error {
@@ -105,6 +106,9 @@ impl fmt::Display for Error {
             }
             Error::FunctionNotFound => write!(f, "the function could not be found"),
             Error::ModuleNotFound => write!(f, "the module could not be found"),
+            Error::ModuleLoadEnvMismatch => {
+                write!(f, "the module and runtime environments were not the same")
+            }
         }
     }
 }

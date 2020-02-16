@@ -19,13 +19,13 @@ pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 
 /// A callable wasm3 function.
 #[derive(Debug)]
-pub struct Function<'env, 'rt, ARGS, RET> {
+pub struct Function<'rt, ARGS, RET> {
     raw: NNM3Function,
-    rt: &'rt Runtime<'env>,
+    rt: &'rt Runtime,
     _pd: PhantomData<(ARGS, RET)>,
 }
 
-impl<'env, 'rt, ARGS, RET> Function<'env, 'rt, ARGS, RET>
+impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>
 where
     ARGS: WasmArgs,
     RET: WasmType,
@@ -44,7 +44,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: NNM3Function) -> Result<Self> {
+    pub(crate) fn from_raw(rt: &'rt Runtime, raw: NNM3Function) -> Result<Self> {
         Self::validate_sig(raw)?;
         let this = Function {
             raw,
@@ -125,7 +125,7 @@ macro_rules! func_call_impl {
     (@do_impl) => {};
     (@do_impl $($types:ident,)*) => {
         #[doc(hidden)] // this really pollutes the documentation
-        impl<'env, 'rt, $($types,)* RET> Function<'env, 'rt, ($($types,)*), RET>
+        impl<'rt, $($types,)* RET> Function<'rt, ($($types,)*), RET>
         where
             RET: WasmType,
             ($($types,)*): WasmArgs,
@@ -140,7 +140,7 @@ macro_rules! func_call_impl {
 }
 func_call_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
 
-impl<'env, 'rt, ARG, RET> Function<'env, 'rt, ARG, RET>
+impl<'rt, ARG, RET> Function<'rt, ARG, RET>
 where
     RET: WasmType,
     ARG: crate::WasmArg,
@@ -153,7 +153,7 @@ where
     }
 }
 
-impl<'env, 'rt, RET> Function<'env, 'rt, (), RET>
+impl<'rt, RET> Function<'rt, (), RET>
 where
     RET: WasmType,
 {

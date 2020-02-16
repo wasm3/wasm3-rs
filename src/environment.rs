@@ -1,14 +1,25 @@
+use alloc::rc::Rc;
+
 use crate::error::Result;
 use crate::module::ParsedModule;
 use crate::runtime::Runtime;
 
 #[derive(Debug)]
-pub struct Environment(ffi::IM3Environment);
+struct DropEnvironment(ffi::IM3Environment);
+
+impl Drop for DropEnvironment {
+    fn drop(&mut self) {
+        unsafe { ffi::m3_FreeEnvironment(self.0) };
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Environment(Rc<DropEnvironment>);
 
 impl Environment {
     #[inline]
     pub fn new() -> Self {
-        unsafe { Environment(ffi::m3_NewEnvironment()) }
+        unsafe { Environment(Rc::new(DropEnvironment(ffi::m3_NewEnvironment()))) }
     }
 
     #[inline]
@@ -17,19 +28,20 @@ impl Environment {
     }
 
     #[inline]
-    pub fn parse_module<'env>(&'env self, bytes: &[u8]) -> Result<ParsedModule<'env>> {
+    pub fn parse_module(&self, bytes: &[u8]) -> Result<ParsedModule> {
         ParsedModule::parse(self, bytes)
     }
 
     #[inline]
     pub(crate) fn as_ptr(&self) -> ffi::IM3Environment {
-        self.0
+        (self.0).0
     }
 }
 
-impl Drop for Environment {
-    fn drop(&mut self) {
-        unsafe { ffi::m3_FreeEnvironment(self.as_ptr()) };
+impl core::cmp::Eq for Environment {}
+impl core::cmp::PartialEq for Environment {
+    fn eq(&self, &Environment(ref other): &Environment) -> bool {
+        alloc::rc::Rc::ptr_eq(&self.0, other)
     }
 }
 

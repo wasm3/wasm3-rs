@@ -12,7 +12,7 @@ fn main() {
     )
     .unwrap();
 
-    let mut module = rt.load_module(module).map_err(|(_, e)| e).unwrap();
+    let mut module = rt.load_module(module).unwrap();
     module.link_closure("time", "millis", |()| MILLIS).unwrap();
     let func = module.find_function::<(), u64>("seconds").unwrap();
     println!("{}ms in seconds is {:?}s.", MILLIS, func.call());

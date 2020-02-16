@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
 use core::slice;
 
@@ -11,19 +10,19 @@ use crate::utils::{cstr_to_str, eq_cstr_str};
 use crate::wasm3_priv;
 
 /// A parsed module which can be loaded into a [`Runtime`].
-pub struct ParsedModule<'env> {
+pub struct ParsedModule {
     raw: ffi::IM3Module,
-    _pd: PhantomData<&'env Environment>,
+    env: Environment,
 }
 
-impl<'env> ParsedModule<'env> {
+impl ParsedModule {
     /// Parses a wasm module from raw bytes.
-    pub fn parse(environment: &'env Environment, bytes: &[u8]) -> Result<Self> {
+    pub fn parse(env: &Environment, bytes: &[u8]) -> Result<Self> {
         assert!(bytes.len() <= !0u32 as usize);
         let mut module = ptr::null_mut();
         let res = unsafe {
             ffi::m3_ParseModule(
-                environment.as_ptr(),
+                env.as_ptr(),
                 &mut module,
                 bytes.as_ptr(),
                 bytes.len() as u32,
@@ -31,16 +30,20 @@ impl<'env> ParsedModule<'env> {
         };
         Error::from_ffi_res(res).map(|_| ParsedModule {
             raw: module,
-            _pd: PhantomData,
+            env: env.clone(),
         })
     }
 
     pub(crate) fn as_ptr(&self) -> ffi::IM3Module {
         self.raw
     }
+
+    pub fn environment(&self) -> &Environment {
+        &self.env
+    }
 }
 
-impl Drop for ParsedModule<'_> {
+impl Drop for ParsedModule {
     fn drop(&mut self) {
         unsafe { ffi::m3_FreeModule(self.raw) };
     }
@@ -48,19 +51,19 @@ impl Drop for ParsedModule<'_> {
 
 /// A loaded module belonging to a specific runtime. Allows for linking and looking up functions.
 // needs no drop as loaded modules will be cleaned up by the runtime
-pub struct Module<'env, 'rt> {
+pub struct Module<'rt> {
     raw: ffi::IM3Module,
-    rt: &'rt Runtime<'env>,
+    rt: &'rt Runtime,
 }
 
-impl<'env, 'rt> Module<'env, 'rt> {
-    pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: ffi::IM3Module) -> Self {
+impl<'rt> Module<'rt> {
+    pub(crate) fn from_raw(rt: &'rt Runtime, raw: ffi::IM3Module) -> Self {
         Module { raw, rt }
     }
 
     /// Parses a wasm module from raw bytes.
     #[inline]
-    pub fn parse(environment: &'env Environment, bytes: &[u8]) -> Result<ParsedModule<'env>> {
+    pub fn parse(environment: &Environment, bytes: &[u8]) -> Result<ParsedModule> {
         ParsedModule::parse(environment, bytes)
     }
 
@@ -76,7 +79,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
         RET: crate::WasmType,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, '_, ARGS, RET>::validate_sig(func)
+        Function::<'_, ARGS, RET>::validate_sig(func)
             .and_then(|_| unsafe { self.link_func_impl(func, f) })
     }
 
@@ -107,7 +110,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
         F: FnMut(ARGS) -> RET + 'static,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, '_, ARGS, RET>::validate_sig(func)?;
+        Function::<'_, ARGS, RET>::validate_sig(func)?;
         let mut closure = Box::pin(closure);
         unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
         self.rt.push_closure(closure);
@@ -182,10 +185,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
 
     /// Looks up a function by the given name in this module.
     /// If the function signature does not fit a FunctionMismatchError will be returned.
-    pub fn find_function<ARGS, RET>(
-        &self,
-        function_name: &str,
-    ) -> Result<Function<'env, 'rt, ARGS, RET>>
+    pub fn find_function<ARGS, RET>(&self, function_name: &str) -> Result<Function<'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
@@ -209,10 +209,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
 
     /// Looks up a function by index.
     /// If the function signature does not fit a FunctionMismatchError will be returned.
-    pub fn function<ARGS, RET>(
-        &self,
-        function_index: usize,
-    ) -> Result<Function<'env, 'rt, ARGS, RET>>
+    pub fn function<ARGS, RET>(&self, function_index: usize) -> Result<Function<'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,

@@ -16,42 +16,36 @@ type PinnedAnyClosure = Pin<Box<dyn core::any::Any + 'static>>;
 
 /// A runtime context for wasm3 modules.
 #[derive(Debug)]
-pub struct Runtime<'env> {
+pub struct Runtime {
     raw: ffi::IM3Runtime,
-    environment: &'env Environment,
+    environment: Environment,
     // holds all linked closures so that they properly get disposed of when runtime drops
     closure_store: UnsafeCell<Vec<PinnedAnyClosure>>,
 }
 
-impl<'env> Runtime<'env> {
+impl Runtime {
     /// Creates a new runtime with the given stack size in slots.
-    pub fn new(environment: &'env Environment, stack_size: u32) -> Self {
+    pub fn new(environment: &Environment, stack_size: u32) -> Self {
         unsafe {
             Runtime {
                 raw: ffi::m3_NewRuntime(environment.as_ptr(), stack_size, ptr::null_mut()),
-                environment,
+                environment: environment.clone(),
                 closure_store: UnsafeCell::new(Vec::new()),
             }
         }
     }
 
     /// Parses and loads a module from bytes.
-    pub fn parse_and_load_module<'rt>(&'rt self, bytes: &[u8]) -> Result<Module<'env, 'rt>> {
-        Module::parse(self.environment, bytes)
-            .and_then(|module| self.load_module(module).map_err(|(_, err)| err))
+    pub fn parse_and_load_module<'rt>(&'rt self, bytes: &[u8]) -> Result<Module<'rt>> {
+        Module::parse(&self.environment, bytes).and_then(|module| self.load_module(module))
     }
 
     /// Loads a parsed module returning the module if unsuccessful.
-    pub fn load_module<'rt>(
-        &'rt self,
-        module: ParsedModule<'env>,
-    ) -> core::result::Result<Module<'env, 'rt>, (ParsedModule<'env>, Error)> {
-        if let Err(err) =
-            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw, module.as_ptr()) })
-        {
-            // can the module be reused on failure actually?
-            Err((module, err))
+    pub fn load_module<'rt>(&'rt self, module: ParsedModule) -> Result<Module<'rt>> {
+        if &self.environment != module.environment() {
+            Err(Error::ModuleLoadEnvMismatch)
         } else {
+            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw, module.as_ptr()) })?;
             let raw = module.as_ptr();
             mem::forget(module);
             Ok(Module::from_raw(self, raw))
@@ -72,10 +66,7 @@ impl<'env> Runtime<'env> {
 
     /// Looks up a function by the given name in the loaded modules of this runtime.
     /// If the function signature does not fit a FunctionMismatchError will be returned.
-    pub fn find_function<'rt, ARGS, RET>(
-        &'rt self,
-        name: &str,
-    ) -> Result<Function<'env, 'rt, ARGS, RET>>
+    pub fn find_function<'rt, ARGS, RET>(&'rt self, name: &str) -> Result<Function<'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
@@ -92,7 +83,7 @@ impl<'env> Runtime<'env> {
     /// Searches for a module with the given name in the runtime's loaded modules.
     /// Using this over searching through [`modules`] is a bit more efficient as it
     /// works on the underlying CStrings directly and doesn't require an upfront length calculation.
-    pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'env, 'rt>> {
+    pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'rt>> {
         unsafe {
             let mut module = ptr::NonNull::new((*self.raw).modules);
             while let Some(raw_mod) = module {
@@ -106,7 +97,7 @@ impl<'env> Runtime<'env> {
     }
 
     /// Returns an iterator over the runtime's loaded modules.
-    pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'env, 'rt>> + 'rt {
+    pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'rt>> + 'rt {
         // pointer could get invalidated if modules can become unloaded
         let mut module = unsafe { ptr::NonNull::new((*self.raw).modules) };
         core::iter::from_fn(move || {
@@ -167,7 +158,7 @@ impl<'env> Runtime<'env> {
     }
 }
 
-impl<'env> Drop for Runtime<'env> {
+impl Drop for Runtime {
     fn drop(&mut self) {
         unsafe { ffi::m3_FreeRuntime(self.raw) };
     }

@@ -106,7 +106,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
-        F: Fn(ARGS) -> RET + 'static,
+        F: FnMut(ARGS) -> RET + 'static,
     {
         let func = self.find_import_function(module_name, function_name)?;
         if Function::<'_, '_, ARGS, RET>::validate_sig(func) {
@@ -119,7 +119,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
         }
     }
 
-    unsafe fn link_closure_impl<ARGS, RET, F: Fn(ARGS) -> RET>(
+    unsafe fn link_closure_impl<ARGS, RET, F>(
         &self,
         mut m3_func: NNM3Function,
         closure: *mut F,
@@ -127,9 +127,9 @@ impl<'env, 'rt> Module<'env, 'rt> {
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
-        F: Fn(ARGS) -> RET + 'static,
+        F: FnMut(ARGS) -> RET + 'static,
     {
-        unsafe extern "C" fn _impl<ARGS, RET, F: Fn(ARGS) -> RET>(
+        unsafe extern "C" fn _impl<ARGS, RET, F>(
             runtime: ffi::IM3Runtime,
             sp: *mut u64,
             _mem: *mut cty::c_void,
@@ -138,7 +138,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
         where
             ARGS: crate::WasmArgs,
             RET: crate::WasmType,
-            F: Fn(ARGS) -> RET + 'static,
+            F: FnMut(ARGS) -> RET + 'static,
         {
             // use https://doc.rust-lang.org/std/primitive.pointer.html#method.offset_from once stable
             let stack_base = (*runtime).stack as ffi::m3stack_t;
@@ -147,7 +147,7 @@ impl<'env, 'rt> Module<'env, 'rt> {
                 slice::from_raw_parts_mut(sp, (*runtime).numStackSlots as usize - stack_occupied);
 
             let args = ARGS::retrieve_from_stack(stack);
-            let ret = (&*closure.cast::<F>())(args);
+            let ret = (&mut *closure.cast::<F>())(args);
             ret.put_on_stack(stack);
             ffi::m3Err_none as _
         }

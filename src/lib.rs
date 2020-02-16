@@ -1,6 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(clippy::all)]
-#![allow(clippy::new_without_default)]
+#![allow(clippy::new_without_default, clippy::match_bool)]
+
+extern crate alloc;
+
 pub mod environment;
 pub mod error;
 pub mod function;

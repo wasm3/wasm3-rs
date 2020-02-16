@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
 use core::slice;
@@ -75,11 +76,8 @@ impl<'env, 'rt> Module<'env, 'rt> {
         RET: crate::WasmType,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        if Function::<'_, '_, ARGS, RET>::validate_sig(func) {
-            unsafe { self.link_func_impl(func, f) }
-        } else {
-            Err(Error::InvalidFunctionSignature)
-        }
+        Function::<'_, '_, ARGS, RET>::validate_sig(func)
+            .and_then(|_| unsafe { self.link_func_impl(func, f) })
     }
 
     unsafe fn link_func_impl(&self, mut m3_func: NNM3Function, func: RawCall) -> Result<()> {
@@ -109,14 +107,11 @@ impl<'env, 'rt> Module<'env, 'rt> {
         F: FnMut(ARGS) -> RET + 'static,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        if Function::<'_, '_, ARGS, RET>::validate_sig(func) {
-            let mut closure = Box::pin(closure);
-            unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
-            self.rt.push_closure(closure);
-            Ok(())
-        } else {
-            Err(Error::InvalidFunctionSignature)
-        }
+        Function::<'_, '_, ARGS, RET>::validate_sig(func)?;
+        let mut closure = Box::pin(closure);
+        unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
+        self.rt.push_closure(closure);
+        Ok(())
     }
 
     unsafe fn link_closure_impl<ARGS, RET, F>(

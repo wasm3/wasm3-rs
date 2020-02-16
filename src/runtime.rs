@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 use core::mem;
 use core::pin::Pin;
@@ -10,7 +12,7 @@ use crate::function::Function;
 use crate::module::{Module, ParsedModule};
 use crate::utils::eq_cstr_str;
 
-type PinnedAnyClosure = Pin<Box<dyn std::any::Any + 'static>>;
+type PinnedAnyClosure = Pin<Box<dyn core::any::Any + 'static>>;
 
 /// A runtime context for wasm3 modules.
 #[derive(Debug)]

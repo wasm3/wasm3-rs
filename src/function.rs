@@ -30,28 +30,28 @@ where
     ARGS: WasmArgs,
     RET: WasmType,
 {
-    pub(crate) fn validate_sig(mut func: NNM3Function) -> bool {
+    pub(crate) fn validate_sig(mut func: NNM3Function) -> Result<()> {
         let &ffi::M3FuncType {
             returnType: ret,
             argTypes: ref args,
             numArgs: num,
             ..
         } = unsafe { &*func.as_mut().funcType };
-        RET::TYPE_INDEX == ret && ARGS::validate_types(&args[..num as usize])
+        match RET::TYPE_INDEX == ret && ARGS::validate_types(&args[..num as usize]) {
+            true => Ok(()),
+            false => Err(Error::InvalidFunctionSignature),
+        }
     }
 
     #[inline]
     pub(crate) fn from_raw(rt: &'rt Runtime<'env>, raw: NNM3Function) -> Result<Self> {
-        if Self::validate_sig(raw) {
-            let this = Function {
-                raw,
-                rt,
-                _pd: PhantomData,
-            };
-            this.compile()
-        } else {
-            Err(Error::InvalidFunctionSignature)
-        }
+        Self::validate_sig(raw)?;
+        let this = Function {
+            raw,
+            rt,
+            _pd: PhantomData,
+        };
+        this.compile()
     }
 
     #[inline]

@@ -14,10 +14,16 @@ impl Drop for DropEnvironment {
     }
 }
 
+/// An environment is required to construct [`Runtime`]s from. It currently servers no real purpose.
 #[derive(Debug, Clone)]
 pub struct Environment(Rc<DropEnvironment>);
 
 impl Environment {
+    /// Creates a new environment.
+    ///
+    /// # Errors
+    ///
+    /// This function will error on memory allocation failure.
     #[inline]
     pub fn new() -> Result<Self> {
         unsafe { NonNull::new(ffi::m3_NewEnvironment()) }
@@ -25,11 +31,17 @@ impl Environment {
             .map(|raw| Environment(Rc::new(DropEnvironment(raw))))
     }
 
+    /// Creates a new runtime with the given stack size in slots.
+    ///
+    /// # Errors
+    ///
+    /// This function will error on memory allocation failure.
     #[inline]
     pub fn create_runtime(&self, stack_size: u32) -> Result<Runtime> {
         Runtime::new(self, stack_size)
     }
 
+    /// Parses a wasm module from raw bytes.
     #[inline]
     pub fn parse_module(&self, bytes: &[u8]) -> Result<ParsedModule> {
         ParsedModule::parse(self, bytes)

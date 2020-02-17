@@ -38,6 +38,7 @@ impl ParsedModule {
         self.raw
     }
 
+    /// The environment this module was parsed in.
     pub fn environment(&self) -> &Environment {
         &self.env
     }
@@ -68,6 +69,14 @@ impl<'rt> Module<'rt> {
     }
 
     /// Links the given function to the corresponding module and function name.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following situations:
+    ///
+    /// * a memory allocation failed
+    /// * no function by the given name in the given module could be found
+    /// * the function has been found but the signature did not match
     pub fn link_function<ARGS, RET>(
         &mut self,
         module_name: &str,
@@ -98,6 +107,15 @@ impl<'rt> Module<'rt> {
         }
     }
 
+    /// Links the given closure to the corresponding module and function name.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following situations:
+    ///
+    /// * a memory allocation failed
+    /// * no function by the given name in the given module could be found
+    /// * the function has been found but the signature did not match
     pub fn link_closure<ARGS, RET, F>(
         &mut self,
         module_name: &str,
@@ -184,7 +202,14 @@ impl<'rt> Module<'rt> {
     }
 
     /// Looks up a function by the given name in this module.
-    /// If the function signature does not fit a FunctionMismatchError will be returned.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following situations:
+    ///
+    /// * a memory allocation failed
+    /// * no function by the given name in the given module could be found
+    /// * the function has been found but the signature did not match
     pub fn find_function<ARGS, RET>(&self, function_name: &str) -> Result<Function<'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
@@ -207,8 +232,15 @@ impl<'rt> Module<'rt> {
         Function::from_raw(self.rt, func).and_then(Function::compile)
     }
 
-    /// Looks up a function by index.
-    /// If the function signature does not fit a FunctionMismatchError will be returned.
+    /// Looks up a function by its index in this module.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following situations:
+    ///
+    /// * a memory allocation failed
+    /// * the index is out of bounds
+    /// * the function has been found but the signature did not match
     pub fn function<ARGS, RET>(&self, function_index: usize) -> Result<Function<'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,

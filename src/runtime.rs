@@ -25,6 +25,10 @@ pub struct Runtime {
 
 impl Runtime {
     /// Creates a new runtime with the given stack size in slots.
+    ///
+    /// # Errors
+    ///
+    /// This function will error on memory allocation failure.
     pub fn new(environment: &Environment, stack_size: u32) -> Result<Self> {
         unsafe {
             NonNull::new(ffi::m3_NewRuntime(
@@ -47,6 +51,10 @@ impl Runtime {
     }
 
     /// Loads a parsed module returning the module if unsuccessful.
+    ///
+    /// # Errors
+    ///
+    /// This function will error if the module's environment differs from the one this runtime uses.
     pub fn load_module<'rt>(&'rt self, module: ParsedModule) -> Result<Module<'rt>> {
         if &self.environment != module.environment() {
             Err(Error::ModuleLoadEnvMismatch)
@@ -71,7 +79,9 @@ impl Runtime {
     }
 
     /// Looks up a function by the given name in the loaded modules of this runtime.
-    /// If the function signature does not fit a FunctionMismatchError will be returned.
+    /// See [`Module::find_function`] for possible error cases.
+    ///
+    /// [`Module::find_function`]: ../module/struct.Module.html#method.find_function
     pub fn find_function<'rt, ARGS, RET>(&'rt self, name: &str) -> Result<Function<'rt, ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
@@ -86,8 +96,11 @@ impl Runtime {
     }
 
     /// Searches for a module with the given name in the runtime's loaded modules.
-    /// Using this over searching through [`modules`] is a bit more efficient as it
+    ///
+    /// Using this over searching through [`Runtime::modules`] is a bit more efficient as it
     /// works on the underlying CStrings directly and doesn't require an upfront length calculation.
+    ///
+    /// [`Runtime::modules`]: struct.Runtime.html#method.modules
     pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'rt>> {
         unsafe {
             let mut module = ptr::NonNull::new(self.raw.as_ref().modules);
@@ -104,6 +117,7 @@ impl Runtime {
     /// Returns an iterator over the runtime's loaded modules.
     pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'rt>> + 'rt {
         // pointer could get invalidated if modules can become unloaded
+        // pushing new modules into the runtime while this iterator exists is fine as its backed by a linked list meaning it wont get invalidated.
         let mut module = unsafe { ptr::NonNull::new(self.raw.as_ref().modules) };
         core::iter::from_fn(move || {
             let next = unsafe { module.and_then(|module| ptr::NonNull::new(module.as_ref().next)) };
@@ -120,6 +134,7 @@ impl Runtime {
     /// Returns the raw memory of this runtime.
     ///
     /// # Safety
+    ///
     /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
     pub unsafe fn memory(&self) -> &[u8] {
         let mut size = 0;
@@ -137,6 +152,7 @@ impl Runtime {
     /// Returns the stack of this runtime.
     ///
     /// # Safety
+    ///
     /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
     pub unsafe fn stack(&self) -> &[u64] {
         slice::from_raw_parts(
@@ -148,8 +164,10 @@ impl Runtime {
     /// Returns the stack of this runtime.
     ///
     /// # Safety
+    ///
     /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed
     /// and because this function allows aliasing to happen if called multiple times.
+    // This function should definitely be replaced once a stack api exists in wasm3
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn stack_mut(&self) -> &mut [u64] {
         slice::from_raw_parts_mut(

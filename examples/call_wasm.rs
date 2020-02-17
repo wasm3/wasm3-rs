@@ -3,7 +3,9 @@ use wasm3::module::Module;
 
 fn main() {
     let env = Environment::new();
-    let rt = env.create_runtime(1024 * 60);
+    let rt = env
+        .create_runtime(1024 * 60)
+        .expect("Unable to create runtime");
     let module = Module::parse(&env, &include_bytes!("wasm/wasm_add/wasm_add.wasm")[..]).unwrap();
 
     let module = rt.load_module(module).unwrap();

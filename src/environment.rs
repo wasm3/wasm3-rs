@@ -23,7 +23,7 @@ impl Environment {
     }
 
     #[inline]
-    pub fn create_runtime(&self, stack_size: u32) -> Runtime {
+    pub fn create_runtime(&self, stack_size: u32) -> Result<Runtime> {
         Runtime::new(self, stack_size)
     }
 

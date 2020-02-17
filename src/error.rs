@@ -93,6 +93,10 @@ impl Error {
             Err(Error::Wasm3(Wasm3Error(ptr)))
         }
     }
+
+    pub(crate) fn malloc_error() -> Self {
+        Error::Wasm3(Wasm3Error(unsafe { ffi::m3Err_mallocFailed }))
+    }
 }
 
 #[cfg(feature = "std")]

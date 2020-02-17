@@ -5,7 +5,9 @@ const MILLIS: u64 = 500_000;
 
 fn main() {
     let env = Environment::new();
-    let rt = env.create_runtime(1024 * 60);
+    let rt = env
+        .create_runtime(1024 * 60)
+        .expect("Unable to create runtime");
     let module = Module::parse(
         &env,
         &include_bytes!("wasm/wasm_millis_to_seconds/wasm_millis_to_seconds.wasm")[..],

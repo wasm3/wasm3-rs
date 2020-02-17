@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 use core::mem;
 use core::pin::Pin;
-use core::ptr;
+use core::ptr::{self, NonNull};
 use core::slice;
 
 use crate::environment::Environment;
@@ -17,7 +17,7 @@ type PinnedAnyClosure = Pin<Box<dyn core::any::Any + 'static>>;
 /// A runtime context for wasm3 modules.
 #[derive(Debug)]
 pub struct Runtime {
-    raw: ffi::IM3Runtime,
+    raw: NonNull<ffi::M3Runtime>,
     environment: Environment,
     // holds all linked closures so that they properly get disposed of when runtime drops
     closure_store: UnsafeCell<Vec<PinnedAnyClosure>>,
@@ -25,14 +25,20 @@ pub struct Runtime {
 
 impl Runtime {
     /// Creates a new runtime with the given stack size in slots.
-    pub fn new(environment: &Environment, stack_size: u32) -> Self {
+    pub fn new(environment: &Environment, stack_size: u32) -> Result<Self> {
         unsafe {
-            Runtime {
-                raw: ffi::m3_NewRuntime(environment.as_ptr(), stack_size, ptr::null_mut()),
-                environment: environment.clone(),
-                closure_store: UnsafeCell::new(Vec::new()),
-            }
+            NonNull::new(ffi::m3_NewRuntime(
+                environment.as_ptr(),
+                stack_size,
+                ptr::null_mut(),
+            ))
         }
+        .ok_or_else(Error::malloc_error)
+        .map(|raw| Runtime {
+            raw,
+            environment: environment.clone(),
+            closure_store: UnsafeCell::new(Vec::new()),
+        })
     }
 
     /// Parses and loads a module from bytes.
@@ -45,7 +51,7 @@ impl Runtime {
         if &self.environment != module.environment() {
             Err(Error::ModuleLoadEnvMismatch)
         } else {
-            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw, module.as_ptr()) })?;
+            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw.as_ptr(), module.as_ptr()) })?;
             let raw = module.as_ptr();
             mem::forget(module);
             Ok(Module::from_raw(self, raw))
@@ -53,11 +59,11 @@ impl Runtime {
     }
 
     pub(crate) unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
-        (*self.raw).memory.mallocated
+        self.raw.as_ref().memory.mallocated
     }
 
     pub(crate) fn rt_error(&self) -> Result<()> {
-        unsafe { Error::from_ffi_res((*self.raw).runtimeError) }
+        unsafe { Error::from_ffi_res(self.raw.as_ref().runtimeError) }
     }
 
     pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
@@ -73,8 +79,7 @@ impl Runtime {
     {
         self.modules()
             .find_map(|module| match module.find_function::<ARGS, RET>(name) {
-                res @ Ok(_) => Some(res),
-                res @ Err(Error::InvalidFunctionSignature) => Some(res),
+                res @ Ok(_) | res @ Err(Error::InvalidFunctionSignature) => Some(res),
                 _ => None,
             })
             .unwrap_or(Err(Error::FunctionNotFound))
@@ -85,7 +90,7 @@ impl Runtime {
     /// works on the underlying CStrings directly and doesn't require an upfront length calculation.
     pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'rt>> {
         unsafe {
-            let mut module = ptr::NonNull::new((*self.raw).modules);
+            let mut module = ptr::NonNull::new(self.raw.as_ref().modules);
             while let Some(raw_mod) = module {
                 if eq_cstr_str(raw_mod.as_ref().name, name) {
                     return Ok(Module::from_raw(self, raw_mod.as_ptr()));
@@ -99,7 +104,7 @@ impl Runtime {
     /// Returns an iterator over the runtime's loaded modules.
     pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'rt>> + 'rt {
         // pointer could get invalidated if modules can become unloaded
-        let mut module = unsafe { ptr::NonNull::new((*self.raw).modules) };
+        let mut module = unsafe { ptr::NonNull::new(self.raw.as_ref().modules) };
         core::iter::from_fn(move || {
             let next = unsafe { module.and_then(|module| ptr::NonNull::new(module.as_ref().next)) };
             mem::replace(&mut module, next).map(|raw| Module::from_raw(self, raw.as_ptr()))
@@ -109,7 +114,7 @@ impl Runtime {
     /// Prints the runtime's information to stdout.
     #[inline]
     pub fn print_info(&self) {
-        unsafe { ffi::m3_PrintRuntimeInfo(self.raw) };
+        unsafe { ffi::m3_PrintRuntimeInfo(self.raw.as_ptr()) };
     }
 
     /// Returns the raw memory of this runtime.
@@ -118,7 +123,7 @@ impl Runtime {
     /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
     pub unsafe fn memory(&self) -> &[u8] {
         let mut size = 0;
-        let ptr = ffi::m3_GetMemory(self.raw, &mut size, 0);
+        let ptr = ffi::m3_GetMemory(self.raw.as_ptr(), &mut size, 0);
         slice::from_raw_parts(
             if size == 0 || ptr.is_null() {
                 ptr::NonNull::dangling().as_ptr()
@@ -135,8 +140,8 @@ impl Runtime {
     /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
     pub unsafe fn stack(&self) -> &[u64] {
         slice::from_raw_parts(
-            (*self.raw).stack as ffi::m3stack_t,
-            (*self.raw).numStackSlots as usize,
+            self.raw.as_ref().stack as ffi::m3stack_t,
+            self.raw.as_ref().numStackSlots as usize,
         )
     }
 
@@ -148,24 +153,24 @@ impl Runtime {
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn stack_mut(&self) -> &mut [u64] {
         slice::from_raw_parts_mut(
-            (*self.raw).stack as ffi::m3stack_t,
-            (*self.raw).numStackSlots as usize,
+            self.raw.as_ref().stack as ffi::m3stack_t,
+            self.raw.as_ref().numStackSlots as usize,
         )
     }
 
     pub(crate) fn as_ptr(&self) -> ffi::IM3Runtime {
-        self.raw
+        self.raw.as_ptr()
     }
 }
 
 impl Drop for Runtime {
     fn drop(&mut self) {
-        unsafe { ffi::m3_FreeRuntime(self.raw) };
+        unsafe { ffi::m3_FreeRuntime(self.raw.as_ptr()) };
     }
 }
 
 #[test]
 fn create_and_drop_rt() {
     let env = Environment::new();
-    let _ = Runtime::new(&env, 1024 * 64);
+    assert!(Runtime::new(&env, 1024 * 64).is_ok());
 }

@@ -171,6 +171,6 @@ impl Drop for Runtime {
 
 #[test]
 fn create_and_drop_rt() {
-    let env = Environment::new();
+    let env = Environment::new().expect("env alloc failure");
     assert!(Runtime::new(&env, 1024 * 64).is_ok());
 }

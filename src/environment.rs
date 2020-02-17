@@ -1,15 +1,16 @@
 use alloc::rc::Rc;
+use core::ptr::NonNull;
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::module::ParsedModule;
 use crate::runtime::Runtime;
 
 #[derive(Debug)]
-struct DropEnvironment(ffi::IM3Environment);
+struct DropEnvironment(NonNull<ffi::M3Environment>);
 
 impl Drop for DropEnvironment {
     fn drop(&mut self) {
-        unsafe { ffi::m3_FreeEnvironment(self.0) };
+        unsafe { ffi::m3_FreeEnvironment(self.0.as_ptr()) };
     }
 }
 
@@ -18,8 +19,10 @@ pub struct Environment(Rc<DropEnvironment>);
 
 impl Environment {
     #[inline]
-    pub fn new() -> Self {
-        unsafe { Environment(Rc::new(DropEnvironment(ffi::m3_NewEnvironment()))) }
+    pub fn new() -> Result<Self> {
+        unsafe { NonNull::new(ffi::m3_NewEnvironment()) }
+            .ok_or_else(Error::malloc_error)
+            .map(|raw| Environment(Rc::new(DropEnvironment(raw))))
     }
 
     #[inline]
@@ -34,7 +37,7 @@ impl Environment {
 
     #[inline]
     pub(crate) fn as_ptr(&self) -> ffi::IM3Environment {
-        (self.0).0
+        (self.0).0.as_ptr()
     }
 }
 
@@ -47,5 +50,5 @@ impl core::cmp::PartialEq for Environment {
 
 #[test]
 fn create_and_drop_env() {
-    let _ = Environment::new();
+    assert!(Environment::new().is_ok());
 }

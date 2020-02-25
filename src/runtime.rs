@@ -125,12 +125,6 @@ impl Runtime {
         })
     }
 
-    /// Prints the runtime's information to stdout.
-    #[inline]
-    pub fn print_info(&self) {
-        unsafe { ffi::m3_PrintRuntimeInfo(self.raw.as_ptr()) };
-    }
-
     /// Returns the raw memory of this runtime.
     ///
     /// # Safety

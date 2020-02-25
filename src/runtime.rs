@@ -132,30 +132,24 @@ impl Runtime {
     }
 
     /// Returns the stack of this runtime.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
-    pub unsafe fn stack(&self) -> &[u64] {
-        slice::from_raw_parts(
-            self.raw.as_ref().stack as ffi::m3stack_t,
-            self.raw.as_ref().numStackSlots as usize,
-        )
+    pub fn stack(&self) -> *const [u64] {
+        unsafe {
+            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
+            slice::from_raw_parts(
+                self.raw.as_ref().stack as ffi::m3stack_t,
+                self.raw.as_ref().numStackSlots as usize,
+            )
+        }
     }
 
     /// Returns the stack of this runtime.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed
-    /// and because this function allows aliasing to happen if called multiple times.
-    // This function should definitely be replaced once a stack api exists in wasm3
-    #[allow(clippy::mut_from_ref)]
-    pub unsafe fn stack_mut(&self) -> &mut [u64] {
-        slice::from_raw_parts_mut(
-            self.raw.as_ref().stack as ffi::m3stack_t,
-            self.raw.as_ref().numStackSlots as usize,
-        )
+    pub fn stack_mut(&self) -> *mut [u64] {
+        unsafe {
+            slice::from_raw_parts_mut(
+                self.raw.as_ref().stack as ffi::m3stack_t,
+                self.raw.as_ref().numStackSlots as usize,
+            )
+        }
     }
 }
 

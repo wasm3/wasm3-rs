@@ -83,7 +83,7 @@ where
     }
 
     fn call_impl(&self, args: ARGS) -> Result<RET> {
-        let stack = unsafe { self.rt.stack_mut() };
+        let stack = unsafe { &mut *self.rt.stack_mut() };
         args.put_on_stack(stack);
         let ret = unsafe {
             Self::call_impl_(

@@ -19,7 +19,7 @@ pub type RawCall = unsafe extern "C" fn(
 pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 
 /// A callable wasm3 function.
-/// This has a generic [`call`] function for up to 26 parameters.
+/// This has a generic `call` function for up to 26 parameters.
 /// These are hidden to not pollute the documentation.
 #[derive(Debug, Copy, Clone)]
 pub struct Function<'rt, ARGS, RET> {

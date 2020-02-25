@@ -14,7 +14,7 @@ impl Drop for DropEnvironment {
     }
 }
 
-/// An environment is required to construct [`Runtime`]s from. It currently servers no real purpose.
+/// An environment is required to construct [`Runtime`]s from. It currently serves no real purpose.
 #[derive(Debug, Clone)]
 pub struct Environment(Rc<DropEnvironment>);
 

@@ -18,11 +18,29 @@ pub type RawCall = unsafe extern "C" fn(
 pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 
 /// A callable wasm3 function.
+/// This has a generic [`call`] function for up to 26 parameters.
+/// These are hidden to not pollute the documentation.
 #[derive(Debug)]
 pub struct Function<'rt, ARGS, RET> {
     raw: NNM3Function,
     rt: &'rt Runtime,
     _pd: PhantomData<(ARGS, RET)>,
+}
+
+impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>
+where
+    ARGS: WasmArgs,
+    RET: WasmType,
+{
+    /// The name of the import module of this function.
+    pub fn import_module_name(&self) -> &str {
+        unsafe { cstr_to_str(self.raw.as_ref().import.moduleUtf8) }
+    }
+
+    /// The name of this function.
+    pub fn name(&self) -> &str {
+        unsafe { cstr_to_str(self.raw.as_ref().name) }
+    }
 }
 
 impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>
@@ -62,16 +80,6 @@ where
             }
         };
         Ok(self)
-    }
-
-    /// The name of the import module of this function.
-    pub fn import_module_name(&self) -> &str {
-        unsafe { cstr_to_str(self.raw.as_ref().import.moduleUtf8) }
-    }
-
-    /// The name of this function.
-    pub fn name(&self) -> &str {
-        unsafe { cstr_to_str(self.raw.as_ref().name) }
     }
 
     fn call_impl(&self, args: ARGS) -> Result<RET> {

@@ -66,18 +66,6 @@ impl Runtime {
         }
     }
 
-    pub(crate) unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
-        self.raw.as_ref().memory.mallocated
-    }
-
-    pub(crate) fn rt_error(&self) -> Result<()> {
-        unsafe { Error::from_ffi_res(self.raw.as_ref().runtimeError) }
-    }
-
-    pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
-        unsafe { (*self.closure_store.get()).push(closure) };
-    }
-
     /// Looks up a function by the given name in the loaded modules of this runtime.
     /// See [`Module::find_function`] for possible error cases.
     ///
@@ -168,6 +156,20 @@ impl Runtime {
             self.raw.as_ref().stack as ffi::m3stack_t,
             self.raw.as_ref().numStackSlots as usize,
         )
+    }
+}
+
+impl Runtime {
+    pub(crate) unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
+        self.raw.as_ref().memory.mallocated
+    }
+
+    pub(crate) fn rt_error(&self) -> Result<()> {
+        unsafe { Error::from_ffi_res(self.raw.as_ref().runtimeError) }
+    }
+
+    pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
+        unsafe { (*self.closure_store.get()).push(closure) };
     }
 
     pub(crate) fn as_ptr(&self) -> ffi::IM3Runtime {

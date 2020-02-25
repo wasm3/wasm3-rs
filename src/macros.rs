@@ -1,5 +1,19 @@
 //! Public macros
 
+/// A convenience macro for creating a wrapper function that can be linked to wasm3.
+///
+/// # Example
+///
+/// ```ignore
+/// wasm3::make_func_wrapper!(millis_wrap: millis() -> u64);
+/// fn millis() -> u64 {
+///     MILLIS
+/// }
+///
+/// module
+///     .link_function::<(), u64>("time", "millis", millis_wrap)
+///     .expect("Unable to link function");
+/// ```
 #[macro_export]
 macro_rules! make_func_wrapper {
     ( $wis:vis $wrapper_name:ident: $original:ident( $( $pname:ident: $ptype:ident ),* $( , )? ) -> TrappedResult<$rtype:ident>) => {

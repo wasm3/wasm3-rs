@@ -76,12 +76,18 @@ impl fmt::Display for Wasm3Error {
     }
 }
 
+/// Error returned by wasm3-rs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
+    /// An error originating from wasm3 itself may or may not be a trap.
     Wasm3(Wasm3Error),
+    /// A function has been found but its signature didn't match.
     InvalidFunctionSignature,
+    /// The specified function could not be found.
     FunctionNotFound,
+    /// The specified module could not be found.
     ModuleNotFound,
+    /// The modules environment did not match the runtime's environment.
     ModuleLoadEnvMismatch,
 }
 

@@ -1,3 +1,4 @@
+use core::cmp::{Eq, PartialEq};
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 use core::str;
@@ -20,11 +21,18 @@ pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 /// A callable wasm3 function.
 /// This has a generic [`call`] function for up to 26 parameters.
 /// These are hidden to not pollute the documentation.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Function<'rt, ARGS, RET> {
     raw: NNM3Function,
     rt: &'rt Runtime,
     _pd: PhantomData<(ARGS, RET)>,
+}
+
+impl<'rt, ARGS, RET> Eq for Function<'rt, ARGS, RET> {}
+impl<'rt, ARGS, RET> PartialEq for Function<'rt, ARGS, RET> {
+    fn eq(&self, other: &Self) -> bool {
+        self.raw == other.raw
+    }
 }
 
 impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>

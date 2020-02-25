@@ -114,7 +114,7 @@ impl Runtime {
     }
 
     /// Returns the raw memory of this runtime.
-    pub fn memory(&self) -> &[u8] {
+    pub fn memory(&self) -> *const [u8] {
         unsafe {
             let len = (*self.mallocated()).length as usize;
             let data = if len == 0 {

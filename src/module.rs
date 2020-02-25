@@ -184,13 +184,13 @@ impl<'rt> Module<'rt> {
 
     /// Links wasi to this module.
     #[cfg(feature = "wasi")]
-    pub fn link_wasi(&mut self) {
-        unsafe { ffi::m3_LinkWASI(self.raw) };
+    pub fn link_wasi(&mut self) -> Result<()> {
+        unsafe { Error::from_ffi_res(ffi::m3_LinkWASI(self.raw)) }
     }
 
     /// Links libc to this module.
-    pub fn link_libc(&mut self) {
-        unsafe { ffi::m3_LinkLibC(self.raw) };
+    pub fn link_libc(&mut self) -> Result<()> {
+        unsafe { Error::from_ffi_res(ffi::m3_LinkLibC(self.raw)) }
     }
 }
 

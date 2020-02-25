@@ -146,7 +146,7 @@ impl WasmType for f64 {
 
 impl WasmType for () {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_void as u8;
+    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_none as u8;
     #[doc(hidden)]
     fn put_on_stack(self, _: &mut [u64]) {}
     #[doc(hidden)]

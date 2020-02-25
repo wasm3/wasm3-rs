@@ -114,21 +114,31 @@ impl Runtime {
     }
 
     /// Returns the raw memory of this runtime.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because calling a wasm function can still mutate this slice while borrowed.
-    pub unsafe fn memory(&self) -> &[u8] {
-        let mut size = 0;
-        let ptr = ffi::m3_GetMemory(self.raw.as_ptr(), &mut size, 0);
-        slice::from_raw_parts(
-            if size == 0 || ptr.is_null() {
+    pub fn memory(&self) -> &[u8] {
+        unsafe {
+            let len = (*self.mallocated()).length as usize;
+            let data = if len == 0 {
                 ptr::NonNull::dangling().as_ptr()
             } else {
-                ptr
-            },
-            size as usize,
-        )
+                self.mallocated().offset(1).cast()
+            };
+            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
+            slice::from_raw_parts(data, len)
+        }
+    }
+
+    /// Returns the raw memory of this runtime.
+    pub fn memory_mut(&self) -> *mut [u8] {
+        unsafe {
+            let len = (*self.mallocated()).length as usize;
+            let data = if len == 0 {
+                ptr::NonNull::dangling().as_ptr()
+            } else {
+                self.mallocated().offset(1).cast()
+            };
+            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
+            slice::from_raw_parts_mut(data, len)
+        }
     }
 
     /// Returns the stack of this runtime.
@@ -145,6 +155,7 @@ impl Runtime {
     /// Returns the stack of this runtime.
     pub fn stack_mut(&self) -> *mut [u64] {
         unsafe {
+            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
             slice::from_raw_parts_mut(
                 self.raw.as_ref().stack as ffi::m3stack_t,
                 self.raw.as_ref().numStackSlots as usize,

@@ -6,7 +6,7 @@ use crate::environment::Environment;
 use crate::error::{Error, Result};
 use crate::function::{Function, NNM3Function, RawCall};
 use crate::runtime::Runtime;
-use crate::utils::{cstr_to_str, eq_cstr_str};
+use crate::utils::{cstr_to_str, eq_cstr_str, rt_check};
 use crate::wasm3_priv;
 
 /// A parsed module which can be loaded into a [`Runtime`].
@@ -51,13 +51,15 @@ impl Drop for ParsedModule {
 }
 
 /// A loaded module belonging to a specific runtime. Allows for linking and looking up functions.
+/// This is just a token which can be used to perform the desired actions on the runtime it belongs to.
 // needs no drop as loaded modules will be cleaned up by the runtime
-pub struct Module<'rt> {
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Module {
     raw: ffi::IM3Module,
-    rt: &'rt Runtime,
+    raw_rt: ffi::IM3Runtime,
 }
 
-impl<'rt> Module<'rt> {
+impl Module {
     /// Parses a wasm module from raw bytes.
     #[inline]
     pub fn parse(environment: &Environment, bytes: &[u8]) -> Result<ParsedModule> {
@@ -74,7 +76,8 @@ impl<'rt> Module<'rt> {
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
     pub fn link_function<ARGS, RET>(
-        &mut self,
+        self,
+        rt: &mut Runtime,
         module_name: &str,
         function_name: &str,
         f: RawCall,
@@ -83,9 +86,10 @@ impl<'rt> Module<'rt> {
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
+        rt_check(rt, self.raw_rt);
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, ARGS, RET>::validate_sig(func)
-            .and_then(|_| unsafe { self.link_func_impl(func, f) })
+        Function::<ARGS, RET>::validate_sig(func)
+            .and_then(|_| unsafe { self.link_func_impl(rt, func, f) })
     }
 
     /// Links the given closure to the corresponding module and function name.
@@ -98,7 +102,8 @@ impl<'rt> Module<'rt> {
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
     pub fn link_closure<ARGS, RET, F>(
-        &mut self,
+        self,
+        rt: &mut Runtime,
         module_name: &str,
         function_name: &str,
         closure: F,
@@ -108,11 +113,12 @@ impl<'rt> Module<'rt> {
         RET: crate::WasmType,
         F: FnMut(ARGS) -> RET + 'static,
     {
+        rt_check(rt, self.raw_rt);
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, ARGS, RET>::validate_sig(func)?;
+        Function::<ARGS, RET>::validate_sig(func)?;
         let mut closure = Box::pin(closure);
-        unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
-        self.rt.push_closure(closure);
+        unsafe { self.link_closure_impl(rt, func, closure.as_mut().get_unchecked_mut()) }?;
+        rt.push_closure(closure);
         Ok(())
     }
 
@@ -125,11 +131,16 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
-    pub fn find_function<ARGS, RET>(&self, function_name: &str) -> Result<Function<'rt, ARGS, RET>>
+    pub fn find_function<ARGS, RET>(
+        self,
+        rt: &Runtime,
+        function_name: &str,
+    ) -> Result<Function<ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
+        rt_check(rt, self.raw_rt);
         let func = unsafe {
             slice::from_raw_parts_mut(
                 if (*self.raw).functions.is_null() {
@@ -144,7 +155,7 @@ impl<'rt> Module<'rt> {
             .map(NonNull::from)
             .ok_or(Error::FunctionNotFound)?
         };
-        Function::from_raw(self.rt, func).and_then(Function::compile)
+        Function::from_raw(self.raw_rt, func).and_then(Function::compile)
     }
 
     /// Looks up a function by its index in this module.
@@ -156,11 +167,16 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * the index is out of bounds
     /// * the function has been found but the signature did not match
-    pub fn function<ARGS, RET>(&self, function_index: usize) -> Result<Function<'rt, ARGS, RET>>
+    pub fn function<ARGS, RET>(
+        self,
+        rt: &Runtime,
+        function_index: usize,
+    ) -> Result<Function<ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
+        rt_check(rt, self.raw_rt);
         let func = unsafe {
             slice::from_raw_parts_mut(
                 if (*self.raw).functions.is_null() {
@@ -174,33 +190,41 @@ impl<'rt> Module<'rt> {
             .map(NonNull::from)
             .ok_or(Error::FunctionNotFound)?
         };
-        Function::from_raw(self.rt, func).and_then(Function::compile)
+        Function::from_raw(self.raw_rt, func).and_then(Function::compile)
     }
 
     /// The name of this module.
-    pub fn name(&self) -> &str {
+    pub fn name(self, rt: &Runtime) -> &str {
+        rt_check(rt, self.raw_rt);
         unsafe { cstr_to_str((*self.raw).name) }
     }
 
     /// Links wasi to this module.
     #[cfg(feature = "wasi")]
-    pub fn link_wasi(&mut self) -> Result<()> {
+    pub fn link_wasi(self, rt: &mut Runtime) -> Result<()> {
+        rt_check(rt, self.raw_rt);
         unsafe { Error::from_ffi_res(ffi::m3_LinkWASI(self.raw)) }
     }
 
     /// Links libc to this module.
-    pub fn link_libc(&mut self) -> Result<()> {
+    pub fn link_libc(self, rt: &mut Runtime) -> Result<()> {
+        rt_check(rt, self.raw_rt);
         unsafe { Error::from_ffi_res(ffi::m3_LinkLibC(self.raw)) }
     }
 }
 
-impl<'rt> Module<'rt> {
-    pub(crate) fn from_raw(rt: &'rt Runtime, raw: ffi::IM3Module) -> Self {
-        Module { raw, rt }
+impl Module {
+    pub(crate) fn from_raw(raw_rt: ffi::IM3Runtime, raw: ffi::IM3Module) -> Self {
+        Module { raw, raw_rt }
     }
 
-    unsafe fn link_func_impl(&self, mut m3_func: NNM3Function, func: RawCall) -> Result<()> {
-        let page = wasm3_priv::AcquireCodePageWithCapacity(self.rt.as_ptr(), 2);
+    unsafe fn link_func_impl(
+        self,
+        rt: &mut Runtime,
+        mut m3_func: NNM3Function,
+        func: RawCall,
+    ) -> Result<()> {
+        let page = wasm3_priv::AcquireCodePageWithCapacity(rt.as_ptr(), 2);
         if page.is_null() {
             Error::from_ffi_res(ffi::m3Err_mallocFailedCodePage)
         } else {
@@ -209,13 +233,14 @@ impl<'rt> Module<'rt> {
             wasm3_priv::EmitWord_impl(page, crate::wasm3_priv::op_CallRawFunction as _);
             wasm3_priv::EmitWord_impl(page, func as _);
 
-            wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);
+            wasm3_priv::ReleaseCodePage(rt.as_ptr(), page);
             Ok(())
         }
     }
 
     unsafe fn link_closure_impl<ARGS, RET, F>(
-        &self,
+        self,
+        rt: &mut Runtime,
         mut m3_func: NNM3Function,
         closure: *mut F,
     ) -> Result<()>
@@ -247,7 +272,7 @@ impl<'rt> Module<'rt> {
             ffi::m3Err_none as _
         }
 
-        let page = wasm3_priv::AcquireCodePageWithCapacity(self.rt.as_ptr(), 3);
+        let page = wasm3_priv::AcquireCodePageWithCapacity(rt.as_ptr(), 3);
         if page.is_null() {
             Error::from_ffi_res(ffi::m3Err_mallocFailedCodePage)
         } else {
@@ -257,12 +282,12 @@ impl<'rt> Module<'rt> {
             wasm3_priv::EmitWord_impl(page, _impl::<ARGS, RET, F> as _);
             wasm3_priv::EmitWord_impl(page, closure.cast());
 
-            wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);
+            wasm3_priv::ReleaseCodePage(rt.as_ptr(), page);
             Ok(())
         }
     }
 
-    fn find_import_function(&self, module_name: &str, function_name: &str) -> Result<NNM3Function> {
+    fn find_import_function(self, module_name: &str, function_name: &str) -> Result<NNM3Function> {
         unsafe {
             slice::from_raw_parts_mut(
                 if (*self.raw).functions.is_null() {

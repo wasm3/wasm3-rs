@@ -5,7 +5,7 @@ use core::str;
 
 use crate::error::{Error, Result};
 use crate::runtime::Runtime;
-use crate::utils::cstr_to_str;
+use crate::utils::{cstr_to_str, rt_check};
 use crate::wasm3_priv;
 use crate::{WasmArgs, WasmType};
 
@@ -18,40 +18,43 @@ pub type RawCall = unsafe extern "C" fn(
 
 pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 
-/// A callable wasm3 function.
+/// A wasm3 function token which can be used to call the corresponding function in the runtime.
 /// This has a generic `call` function for up to 26 parameters.
 /// These are hidden to not pollute the documentation.
+/// This is just a token which can be used to perform the desired actions on the runtime it belongs to.
 #[derive(Debug, Copy, Clone)]
-pub struct Function<'rt, ARGS, RET> {
+pub struct Function<ARGS, RET> {
     raw: NNM3Function,
-    rt: &'rt Runtime,
+    raw_rt: ffi::IM3Runtime,
     _pd: PhantomData<(ARGS, RET)>,
 }
 
-impl<'rt, ARGS, RET> Eq for Function<'rt, ARGS, RET> {}
-impl<'rt, ARGS, RET> PartialEq for Function<'rt, ARGS, RET> {
+impl<ARGS, RET> Eq for Function<ARGS, RET> {}
+impl<ARGS, RET> PartialEq for Function<ARGS, RET> {
     fn eq(&self, other: &Self) -> bool {
         self.raw == other.raw
     }
 }
 
-impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>
+impl<ARGS, RET> Function<ARGS, RET>
 where
     ARGS: WasmArgs,
     RET: WasmType,
 {
     /// The name of the import module of this function.
-    pub fn import_module_name(&self) -> &str {
+    pub fn import_module_name<'rt>(&self, rt: &'rt Runtime) -> &'rt str {
+        rt_check(rt, self.raw_rt);
         unsafe { cstr_to_str(self.raw.as_ref().import.moduleUtf8) }
     }
 
     /// The name of this function.
-    pub fn name(&self) -> &str {
+    pub fn name<'rt>(&self, rt: &'rt Runtime) -> &'rt str {
+        rt_check(rt, self.raw_rt);
         unsafe { cstr_to_str(self.raw.as_ref().name) }
     }
 }
 
-impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>
+impl<ARGS, RET> Function<ARGS, RET>
 where
     ARGS: WasmArgs,
     RET: WasmType,
@@ -70,11 +73,11 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_raw(rt: &'rt Runtime, raw: NNM3Function) -> Result<Self> {
+    pub(crate) fn from_raw(raw_rt: ffi::IM3Runtime, raw: NNM3Function) -> Result<Self> {
         Self::validate_sig(raw)?;
         let this = Function {
             raw,
-            rt,
+            raw_rt,
             _pd: PhantomData,
         };
         this.compile()
@@ -90,21 +93,25 @@ where
         Ok(self)
     }
 
-    fn call_impl(&self, args: ARGS) -> Result<RET> {
-        let stack = unsafe { &mut *self.rt.stack_mut() };
-        args.put_on_stack(stack);
-        let ret = unsafe {
-            Self::call_impl_(
+    fn call_impl(&self, rt: &mut Runtime, args: ARGS) -> Result<RET> {
+        rt_check(rt, self.raw_rt);
+        let (ret, slot) = unsafe {
+            let _mem = rt.mallocated();
+            let stack = rt.stack_mut();
+            args.put_on_stack(stack);
+            let ret = Self::call_impl_(
                 self.raw.as_ref().compiled,
                 stack.as_mut_ptr(),
-                self.rt.mallocated(),
+                _mem,
                 666,
                 core::f64::NAN,
-            )
+            );
+            let &slot = stack.get_unchecked(0);
+            (ret, slot)
         };
-        match self.rt.rt_error() {
+        match rt.rt_error() {
             Err(e) if ret.is_null() => Err(e),
-            _ => Ok(RET::from_u64(stack[0])),
+            _ => Ok(RET::from_u64(slot)),
         }
     }
 
@@ -141,22 +148,22 @@ macro_rules! func_call_impl {
     (@do_impl) => {};
     (@do_impl $($types:ident,)*) => {
         #[doc(hidden)] // this really pollutes the documentation
-        impl<'rt, $($types,)* RET> Function<'rt, ($($types,)*), RET>
+        impl<$($types,)* RET> Function<($($types,)*), RET>
         where
             RET: WasmType,
             ($($types,)*): WasmArgs,
         {
             #[inline]
             #[allow(non_snake_case, clippy::too_many_arguments)]
-            pub fn call(&self, $($types: $types),*) -> Result<RET> {
-                self.call_impl(($($types,)*))
+            pub fn call(&self, rt: &mut Runtime, $($types: $types),*) -> Result<RET> {
+                self.call_impl(rt, ($($types,)*))
             }
         }
     };
 }
 func_call_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
 
-impl<'rt, ARG, RET> Function<'rt, ARG, RET>
+impl<ARG, RET> Function<ARG, RET>
 where
     RET: WasmType,
     ARG: crate::WasmArg,
@@ -164,19 +171,19 @@ where
     /// Calls this function with the given parameter.
     /// This is implemented with variable arguments depending on the functions ARGS type.
     #[inline]
-    pub fn call(&self, arg: ARG) -> Result<RET> {
-        self.call_impl(arg)
+    pub fn call(&self, rt: &mut Runtime, arg: ARG) -> Result<RET> {
+        self.call_impl(rt, arg)
     }
 }
 
-impl<'rt, RET> Function<'rt, (), RET>
+impl<RET> Function<(), RET>
 where
     RET: WasmType,
 {
     /// Calls this function.
     /// This is implemented with variable arguments depending on the functions ARGS type.
     #[inline]
-    pub fn call(&self) -> Result<RET> {
-        self.call_impl(())
+    pub fn call(&self, rt: &mut Runtime) -> Result<RET> {
+        self.call_impl(rt, ())
     }
 }

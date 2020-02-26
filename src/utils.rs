@@ -32,6 +32,15 @@ pub unsafe fn eq_cstr_str(cstr: *const cty::c_char, str: &str) -> bool {
     }
 }
 
+#[inline(always)]
+pub fn rt_check(rt: &crate::runtime::Runtime, other: ffi::IM3Runtime) {
+    match rt.as_ptr() == other {
+        true => (),
+        #[cold]
+        false => panic!("runtime mismatch"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

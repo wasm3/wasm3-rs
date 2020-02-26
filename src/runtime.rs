@@ -46,23 +46,23 @@ impl Runtime {
     }
 
     /// Parses and loads a module from bytes.
-    pub fn parse_and_load_module<'rt>(&'rt self, bytes: &[u8]) -> Result<Module<'rt>> {
-        Module::parse(&self.environment, bytes).and_then(|module| self.load_module(module))
+    pub fn parse_and_load_module(&mut self, bytes: &[u8]) -> Result<Module> {
+        Module::parse(&self.environment, bytes).and_then(move |module| self.load_module(module))
     }
 
-    /// Loads a parsed module returning the module if unsuccessful.
+    /// Loads a parsed module.
     ///
     /// # Errors
     ///
     /// This function will error if the module's environment differs from the one this runtime uses.
-    pub fn load_module<'rt>(&'rt self, module: ParsedModule) -> Result<Module<'rt>> {
+    pub fn load_module(&mut self, module: ParsedModule) -> Result<Module> {
         if &self.environment != module.environment() {
             Err(Error::ModuleLoadEnvMismatch)
         } else {
             Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw.as_ptr(), module.as_ptr()) })?;
             let raw = module.as_ptr();
             mem::forget(module);
-            Ok(Module::from_raw(self, raw))
+            Ok(Module::from_raw(self.as_ptr(), raw))
         }
     }
 
@@ -70,16 +70,18 @@ impl Runtime {
     /// See [`Module::find_function`] for possible error cases.
     ///
     /// [`Module::find_function`]: ../module/struct.Module.html#method.find_function
-    pub fn find_function<'rt, ARGS, RET>(&'rt self, name: &str) -> Result<Function<'rt, ARGS, RET>>
+    pub fn find_function<ARGS, RET>(&self, name: &str) -> Result<Function<ARGS, RET>>
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
     {
         self.modules()
-            .find_map(|module| match module.find_function::<ARGS, RET>(name) {
-                res @ Ok(_) | res @ Err(Error::InvalidFunctionSignature) => Some(res),
-                _ => None,
-            })
+            .find_map(
+                |module| match module.find_function::<ARGS, RET>(self, name) {
+                    res @ Ok(_) | res @ Err(Error::InvalidFunctionSignature) => Some(res),
+                    _ => None,
+                },
+            )
             .unwrap_or(Err(Error::FunctionNotFound))
     }
 
@@ -89,12 +91,12 @@ impl Runtime {
     /// works on the underlying CStrings directly and doesn't require an upfront length calculation.
     ///
     /// [`Runtime::modules`]: struct.Runtime.html#method.modules
-    pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'rt>> {
+    pub fn find_module(&mut self, name: &str) -> Result<Module> {
         unsafe {
             let mut module = ptr::NonNull::new(self.raw.as_ref().modules);
             while let Some(raw_mod) = module {
                 if eq_cstr_str(raw_mod.as_ref().name, name) {
-                    return Ok(Module::from_raw(self, raw_mod.as_ptr()));
+                    return Ok(Module::from_raw(self.as_ptr(), raw_mod.as_ptr()));
                 }
                 module = ptr::NonNull::new(raw_mod.as_ref().next);
             }
@@ -103,18 +105,18 @@ impl Runtime {
     }
 
     /// Returns an iterator over the runtime's loaded modules.
-    pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'rt>> + 'rt {
-        // pointer could get invalidated if modules can become unloaded
+    pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module> + 'rt {
+        // pointer could get invalidated if modules can become unloaded?
         // pushing new modules into the runtime while this iterator exists is fine as its backed by a linked list meaning it wont get invalidated.
         let mut module = unsafe { ptr::NonNull::new(self.raw.as_ref().modules) };
         core::iter::from_fn(move || {
             let next = unsafe { module.and_then(|module| ptr::NonNull::new(module.as_ref().next)) };
-            mem::replace(&mut module, next).map(|raw| Module::from_raw(self, raw.as_ptr()))
+            mem::replace(&mut module, next).map(|raw| Module::from_raw(self.as_ptr(), raw.as_ptr()))
         })
     }
 
     /// Returns the raw memory of this runtime.
-    pub fn memory(&self) -> *const [u8] {
+    pub fn memory(&self) -> &[u8] {
         unsafe {
             let len = (*self.mallocated()).length as usize;
             let data = if len == 0 {
@@ -122,13 +124,12 @@ impl Runtime {
             } else {
                 self.mallocated().offset(1).cast()
             };
-            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
             slice::from_raw_parts(data, len)
         }
     }
 
     /// Returns the raw memory of this runtime.
-    pub fn memory_mut(&self) -> *mut [u8] {
+    pub fn memory_mut(&mut self) -> &mut [u8] {
         unsafe {
             let len = (*self.mallocated()).length as usize;
             let data = if len == 0 {
@@ -136,15 +137,13 @@ impl Runtime {
             } else {
                 self.mallocated().offset(1).cast()
             };
-            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
             slice::from_raw_parts_mut(data, len)
         }
     }
 
     /// Returns the stack of this runtime.
-    pub fn stack(&self) -> *const [u64] {
+    pub fn stack(&self) -> &[u64] {
         unsafe {
-            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
             slice::from_raw_parts(
                 self.raw.as_ref().stack as ffi::m3stack_t,
                 self.raw.as_ref().numStackSlots as usize,
@@ -153,9 +152,8 @@ impl Runtime {
     }
 
     /// Returns the stack of this runtime.
-    pub fn stack_mut(&self) -> *mut [u64] {
+    pub fn stack_mut(&mut self) -> &mut [u64] {
         unsafe {
-            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
             slice::from_raw_parts_mut(
                 self.raw.as_ref().stack as ffi::m3stack_t,
                 self.raw.as_ref().numStackSlots as usize,

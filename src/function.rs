@@ -25,7 +25,7 @@ pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 pub struct Function<'rt, ARGS, RET> {
     raw: NNM3Function,
     rt: &'rt Runtime,
-    _pd: PhantomData<(ARGS, RET)>,
+    _pd: PhantomData<*const (ARGS, RET)>,
 }
 
 impl<'rt, ARGS, RET> Eq for Function<'rt, ARGS, RET> {}

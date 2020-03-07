@@ -50,14 +50,17 @@ fn gen_bindings() {
     bindgen
         .arg("-o")
         .arg(out_path.join("bindings.rs").to_str().unwrap());
-    bindgen.arg("--").arg(format!(
-        "-Dd_m3Use32BitSlots={}",
-        if cfg!(feature = "use-32bit-slots") {
-            1
-        } else {
-            0
-        }
-    ));
+    bindgen
+        .arg("--")
+        .arg(format!(
+            "-Dd_m3Use32BitSlots={}",
+            if cfg!(feature = "use-32bit-slots") {
+                1
+            } else {
+                0
+            }
+        ))
+        .arg("-Dd_m3LogOutput=0");
     let status = bindgen.status().expect("Unable to generate bindings");
     if !status.success() {
         panic!("Failed to run bindgen: {:?}", status);

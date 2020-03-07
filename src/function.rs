@@ -12,7 +12,7 @@ use crate::{WasmArgs, WasmType};
 // redefine of ffi::RawCall without the Option<T> around it
 pub type RawCall = unsafe extern "C" fn(
     runtime: ffi::IM3Runtime,
-    _sp: *mut u64,
+    _sp: ffi::m3stack_t,
     _mem: *mut cty::c_void,
 ) -> *const cty::c_void;
 
@@ -104,7 +104,7 @@ where
         };
         match self.rt.rt_error() {
             Err(e) if ret.is_null() => Err(e),
-            _ => Ok(unsafe { RET::pop_from_stack(stack) }),
+            _ => Ok(unsafe { RET::pop_from_stack(stack.cast()) }),
         }
     }
 

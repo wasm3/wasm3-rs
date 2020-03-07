@@ -6,54 +6,50 @@ mod private {
 
 #[cfg(feature = "use-32bit-slots")]
 #[inline(always)]
-unsafe fn read_u32_from_stack(stack: *mut [ffi::m3slot_t]) -> u32 {
-    *stack.cast::<ffi::m3slot_t>()
-}
-
-#[cfg(not(feature = "use-32bit-slots"))]
-#[inline(always)]
-unsafe fn read_u32_from_stack(stack: *mut [ffi::m3slot_t]) -> u32 {
-    (*stack.cast::<ffi::m3slot_t>() & 0xFFFF_FFFF) as u32
-}
-
-#[cfg(feature = "use-32bit-slots")]
-#[inline(always)]
-unsafe fn read_u64_from_stack(stack: *mut [ffi::m3slot_t]) -> u64 {
-    assert!((*stack).len() > 1);
-    let stack = stack.cast::<ffi::m3slot_t>().cast::<u64>();
+unsafe fn read_u32_from_stack(stack: *mut ffi::m3slot_t) -> u32 {
     *stack
 }
 
 #[cfg(not(feature = "use-32bit-slots"))]
 #[inline(always)]
-unsafe fn read_u64_from_stack(stack: *mut [ffi::m3slot_t]) -> u64 {
-    *stack.cast::<ffi::m3slot_t>()
+unsafe fn read_u32_from_stack(stack: *mut ffi::m3slot_t) -> u32 {
+    (*stack & 0xFFFF_FFFF) as u32
 }
 
 #[cfg(feature = "use-32bit-slots")]
 #[inline(always)]
-unsafe fn write_u32_to_stack(stack: *mut [ffi::m3slot_t], val: u32) {
-    *stack.cast::<ffi::m3slot_t>() = val;
+unsafe fn read_u64_from_stack(stack: *mut ffi::m3slot_t) -> u64 {
+    *stack.cast::<u64>()
 }
 
 #[cfg(not(feature = "use-32bit-slots"))]
 #[inline(always)]
-unsafe fn write_u32_to_stack(stack: *mut [ffi::m3slot_t], val: u32) {
-    *stack.cast::<ffi::m3slot_t>() = val as ffi::m3slot_t;
+unsafe fn read_u64_from_stack(stack: *mut ffi::m3slot_t) -> u64 {
+    *stack
 }
 
 #[cfg(feature = "use-32bit-slots")]
 #[inline(always)]
-unsafe fn write_u64_to_stack(stack: *mut [ffi::m3slot_t], val: u64) {
-    assert!((*stack).len() > 1);
-    let stack = stack.cast::<ffi::m3slot_t>().cast::<u64>();
+unsafe fn write_u32_to_stack(stack: *mut ffi::m3slot_t, val: u32) {
     *stack = val;
 }
 
 #[cfg(not(feature = "use-32bit-slots"))]
 #[inline(always)]
-unsafe fn write_u64_to_stack(stack: *mut [ffi::m3slot_t], val: u64) {
-    *stack.cast::<ffi::m3slot_t>() = val;
+unsafe fn write_u32_to_stack(stack: *mut ffi::m3slot_t, val: u32) {
+    *stack.cast::<ffi::m3slot_t>() = val as ffi::m3slot_t;
+}
+
+#[cfg(feature = "use-32bit-slots")]
+#[inline(always)]
+unsafe fn write_u64_to_stack(stack: *mut ffi::m3slot_t, val: u64) {
+    *stack.cast::<u64>() = val;
+}
+
+#[cfg(not(feature = "use-32bit-slots"))]
+#[inline(always)]
+unsafe fn write_u64_to_stack(stack: *mut ffi::m3slot_t, val: u64) {
+    *stack = val;
 }
 
 /// Trait implemented by types that can be passed to and from wasm.
@@ -63,9 +59,9 @@ pub trait WasmType: Sized {
     #[doc(hidden)]
     const SIZE_IN_SLOT_COUNT: usize;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self;
+    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self;
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]);
+    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t);
     #[doc(hidden)]
     fn sealed_() -> private::Seal;
 }
@@ -93,11 +89,11 @@ impl WasmType for i32 {
     #[doc(hidden)]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
+    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         read_u32_from_stack(stack) as i32
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
+    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
         write_u32_to_stack(stack, self as u32);
     }
     #[doc(hidden)]
@@ -113,11 +109,11 @@ impl WasmType for u32 {
     #[doc(hidden)]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
+    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         read_u32_from_stack(stack)
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
+    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
         write_u32_to_stack(stack, self);
     }
     #[doc(hidden)]
@@ -138,11 +134,11 @@ impl WasmType for i64 {
     const SIZE_IN_SLOT_COUNT: usize = 1;
 
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
+    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         read_u64_from_stack(stack) as i64
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
+    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
         write_u64_to_stack(stack, self as u64);
     }
     #[doc(hidden)]
@@ -162,11 +158,11 @@ impl WasmType for u64 {
     #[cfg(not(feature = "use-32bit-slots"))]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
+    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         read_u64_from_stack(stack)
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
+    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
         write_u64_to_stack(stack, self);
     }
     #[doc(hidden)]
@@ -182,11 +178,11 @@ impl WasmType for f32 {
     #[doc(hidden)]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
+    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         f32::from_ne_bytes(read_u32_from_stack(stack).to_ne_bytes())
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
+    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
         write_u32_to_stack(stack, u32::from_ne_bytes(self.to_ne_bytes()));
     }
     #[doc(hidden)]
@@ -206,11 +202,11 @@ impl WasmType for f64 {
     #[cfg(not(feature = "use-32bit-slots"))]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
+    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         f64::from_ne_bytes(read_u64_from_stack(stack).to_ne_bytes())
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
+    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
         write_u64_to_stack(stack, u64::from_ne_bytes(self.to_ne_bytes()));
     }
     #[doc(hidden)]
@@ -225,9 +221,9 @@ impl WasmType for () {
     #[doc(hidden)]
     const SIZE_IN_SLOT_COUNT: usize = 0;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(_: *mut [ffi::m3slot_t]) -> Self {}
+    unsafe fn pop_from_stack(_: *mut ffi::m3slot_t) -> Self {}
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, _: *mut [ffi::m3slot_t]) {}
+    unsafe fn push_on_stack(self, _: *mut ffi::m3slot_t) {}
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
@@ -256,11 +252,11 @@ where
 {
     #[doc(hidden)]
     unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
-        WasmType::push_on_stack(self, stack);
+        WasmType::push_on_stack(self, stack.cast());
     }
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
-        WasmType::pop_from_stack(stack)
+        WasmType::pop_from_stack(stack.cast())
     }
     #[doc(hidden)]
     fn validate_types(types: &[u8]) -> bool {
@@ -301,7 +297,7 @@ macro_rules! args_impl {
                 assert!(req_size <= stack.len(), "wasm stack was too small");
 
                 $(
-                    $types.push_on_stack(stack);
+                    $types.push_on_stack(stack.as_mut_ptr());
                     stack = &mut stack[$types::SIZE_IN_SLOT_COUNT..];
                 )*
             }
@@ -315,7 +311,7 @@ macro_rules! args_impl {
                 assert!(req_size <= stack.len(), "wasm stack was too small");
                 ($(
                     {
-                        let val = $types::pop_from_stack(stack);
+                        let val = $types::pop_from_stack(stack.as_mut_ptr());
                         stack = &mut stack[$types::SIZE_IN_SLOT_COUNT..];
                         val
                     },

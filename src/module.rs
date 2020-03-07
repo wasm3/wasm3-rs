@@ -245,7 +245,7 @@ impl<'rt> Module<'rt> {
 
             let args = ARGS::pop_from_stack(stack);
             let ret = (&mut *closure.cast::<F>())(args);
-            ret.push_on_stack(stack);
+            ret.push_on_stack(stack.as_mut_ptr());
             ffi::m3Err_none as _
         }
 

@@ -12,9 +12,11 @@ categories = ["api-bindings"]
 exclude = ["examples/*"]
 
 [features]
+default = ["wasi", "std", "use-32bit-slots"]
+
 wasi = ["ffi/wasi"]
 std = []
-default = ["wasi", "std"]
+use-32bit-slots = ["ffi/use-32bit-slots"]
 
 [dependencies]
 cty = "0.2"

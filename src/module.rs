@@ -226,7 +226,7 @@ impl<'rt> Module<'rt> {
     {
         unsafe extern "C" fn _impl<ARGS, RET, F>(
             runtime: ffi::IM3Runtime,
-            sp: *mut u64,
+            sp: ffi::m3stack_t,
             _mem: *mut cty::c_void,
             closure: *mut cty::c_void,
         ) -> *const cty::c_void
@@ -237,13 +237,15 @@ impl<'rt> Module<'rt> {
         {
             // use https://doc.rust-lang.org/std/primitive.pointer.html#method.offset_from once stable
             let stack_base = (*runtime).stack as ffi::m3stack_t;
-            let stack_occupied = (sp as usize - stack_base as usize) / core::mem::size_of::<u64>();
+            let stack_occupied =
+                (sp as usize - stack_base as usize) / core::mem::size_of::<ffi::m3slot_t>();
+            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
             let stack =
                 slice::from_raw_parts_mut(sp, (*runtime).numStackSlots as usize - stack_occupied);
 
-            let args = ARGS::retrieve_from_stack(stack);
+            let args = ARGS::pop_from_stack(stack);
             let ret = (&mut *closure.cast::<F>())(args);
-            ret.put_on_stack(stack);
+            ret.push_on_stack(stack);
             ffi::m3Err_none as _
         }
 

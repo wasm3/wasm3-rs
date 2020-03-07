@@ -91,12 +91,12 @@ where
     }
 
     fn call_impl(&self, args: ARGS) -> Result<RET> {
-        let stack = unsafe { &mut *self.rt.stack_mut() };
-        args.put_on_stack(stack);
+        let stack = self.rt.stack_mut();
         let ret = unsafe {
+            args.push_on_stack(stack);
             Self::call_impl_(
                 self.raw.as_ref().compiled,
-                stack.as_mut_ptr(),
+                stack.cast(),
                 self.rt.mallocated(),
                 666,
                 core::f64::NAN,
@@ -104,14 +104,14 @@ where
         };
         match self.rt.rt_error() {
             Err(e) if ret.is_null() => Err(e),
-            _ => Ok(RET::from_u64(stack[0])),
+            _ => Ok(unsafe { RET::pop_from_stack(stack) }),
         }
     }
 
     #[inline]
     unsafe fn call_impl_(
         _pc: ffi::pc_t,
-        _sp: *mut u64,
+        _sp: ffi::m3stack_t,
         _mem: *mut ffi::M3MemoryHeader,
         _r0: ffi::m3reg_t,
         _fp0: f64,

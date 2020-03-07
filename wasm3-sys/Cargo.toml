@@ -13,6 +13,7 @@ links = "wasm3"
 
 [features]
 wasi = []
+use-32bit-slots = []
 
 [dependencies]
 cty = "0.2"

@@ -47,12 +47,18 @@ fn gen_bindings() {
     for &ty in PRIMITIVES.iter() {
         bindgen.arg("--blacklist-type").arg(ty);
     }
-
-    let status = bindgen
+    bindgen
         .arg("-o")
-        .arg(out_path.join("bindings.rs").to_str().unwrap())
-        .status()
-        .expect("Unable to generate bindings");
+        .arg(out_path.join("bindings.rs").to_str().unwrap());
+    bindgen.arg("--").arg(format!(
+        "-Dd_m3Use32BitSlots={}",
+        if cfg!(feature = "use-32bit-slots") {
+            1
+        } else {
+            0
+        }
+    ));
+    let status = bindgen.status().expect("Unable to generate bindings");
     if !status.success() {
         panic!("Failed to run bindgen: {:?}", status);
     }
@@ -78,5 +84,13 @@ fn main() {
     if cfg!(feature = "wasi") {
         cfg.define("d_m3HasWASI", None);
     }
+    cfg.define(
+        "d_m3Use32BitSlots",
+        if cfg!(feature = "use-32bit-slots") {
+            Some("1")
+        } else {
+            Some("0")
+        },
+    );
     cfg.compile("wasm3");
 }

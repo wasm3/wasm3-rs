@@ -4,7 +4,6 @@ use core::cell::UnsafeCell;
 use core::mem;
 use core::pin::Pin;
 use core::ptr::{self, NonNull};
-use core::slice;
 
 use crate::environment::Environment;
 use crate::error::{Error, Result};
@@ -125,8 +124,7 @@ impl Runtime {
         } else {
             self.mallocated().offset(1).cast()
         };
-        // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
-        slice::from_raw_parts(data, len)
+        ptr::slice_from_raw_parts(data, len)
     }
 
     /// Returns the raw memory of this runtime.
@@ -141,15 +139,13 @@ impl Runtime {
         } else {
             self.mallocated().offset(1).cast()
         };
-        // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
-        slice::from_raw_parts_mut(data, len)
+        ptr::slice_from_raw_parts_mut(data, len)
     }
 
     /// Returns the stack of this runtime.
     pub fn stack(&self) -> *const [ffi::m3slot_t] {
         unsafe {
-            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
-            slice::from_raw_parts(
+            ptr::slice_from_raw_parts(
                 self.raw.as_ref().stack.cast::<ffi::m3slot_t>(),
                 self.raw.as_ref().numStackSlots as usize,
             )
@@ -159,8 +155,7 @@ impl Runtime {
     /// Returns the stack of this runtime.
     pub fn stack_mut(&self) -> *mut [ffi::m3slot_t] {
         unsafe {
-            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
-            slice::from_raw_parts_mut(
+            ptr::slice_from_raw_parts_mut(
                 self.raw.as_ref().stack.cast::<ffi::m3slot_t>(),
                 self.raw.as_ref().numStackSlots as usize,
             )

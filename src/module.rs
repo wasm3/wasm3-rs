@@ -239,13 +239,14 @@ impl<'rt> Module<'rt> {
             let stack_base = (*runtime).stack as ffi::m3stack_t;
             let stack_occupied =
                 (sp as usize - stack_base as usize) / core::mem::size_of::<ffi::m3slot_t>();
-            // use core::ptr::slice_from_raw_parts once its stable, https://github.com/rust-lang/rfcs/pull/2580
-            let stack =
-                slice::from_raw_parts_mut(sp, (*runtime).numStackSlots as usize - stack_occupied);
+            let stack = ptr::slice_from_raw_parts_mut(
+                sp,
+                (*runtime).numStackSlots as usize - stack_occupied,
+            );
 
             let args = ARGS::pop_from_stack(stack);
             let ret = (&mut *closure.cast::<F>())(args);
-            ret.push_on_stack(stack.as_mut_ptr());
+            ret.push_on_stack(stack.cast());
             ffi::m3Err_none as _
         }
 

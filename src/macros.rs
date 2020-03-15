@@ -26,7 +26,7 @@ macro_rules! make_func_wrapper {
             let ssp = _sp;
             $(
                 let $pname = $ptype::pop_from_stack(_sp);
-                let _sp = _sp.add($type::SIZE_IN_SLOT_COUNT);
+                let _sp = _sp.add($ptype::SIZE_IN_SLOT_COUNT);
             )*
             let ret = $original( $( $pname ),* );
             match ret {
@@ -49,7 +49,7 @@ macro_rules! make_func_wrapper {
             let ssp = _sp;
             $(
                 let $pname = $ptype::pop_from_stack(_sp);
-                let _sp = _sp.add($type::SIZE_IN_SLOT_COUNT);
+                let _sp = _sp.add($ptype::SIZE_IN_SLOT_COUNT);
             )*
             let ret = $original( $( $pname ),* );
             $(

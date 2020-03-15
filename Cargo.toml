@@ -25,5 +25,8 @@ cty = "0.2"
 path = "wasm3-sys"
 package = "wasm3-sys"
 
+[dev-dependencies]
+trybuild = "1.0"
+
 [workspace]
 members = ["wasm3-sys"]

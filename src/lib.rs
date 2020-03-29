@@ -1,20 +1,26 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 #![warn(clippy::all)]
 #![allow(clippy::new_without_default, clippy::match_bool)]
+//! A rust wrapper for [WASM3](https://github.com/wasm3/wasm3).
 
 extern crate alloc;
 
-pub mod environment;
 pub mod error;
-pub mod function;
-pub mod module;
-pub mod runtime;
 
-mod ty;
-pub use self::ty::{WasmArg, WasmArgs, WasmType};
+mod environment;
+pub use self::environment::Environment;
+mod function;
+pub use self::function::{Function, RawCall};
 mod macros;
 pub use self::macros::*;
+mod module;
+pub use self::module::{Module, ParsedModule};
+mod runtime;
+pub use self::runtime::Runtime;
+mod ty;
+pub use self::ty::{WasmArg, WasmArgs, WasmType};
 mod utils;
-pub(crate) mod wasm3_priv;
-
 pub use ffi as wasm3_sys;
+
+pub(crate) mod wasm3_priv;

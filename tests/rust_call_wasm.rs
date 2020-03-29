@@ -1,6 +1,6 @@
-use wasm3::environment::Environment;
-use wasm3::module::Module;
-use wasm3::runtime::Runtime;
+use wasm3::Environment;
+use wasm3::Module;
+use wasm3::Runtime;
 
 fn runtime() -> Runtime {
     Environment::new()

@@ -18,8 +18,8 @@ wasm3 = { git = "https://github.com/Veykril/wasm3-rs.git" }
 A simple [example](./examples/call_wasm.rs) that loads a wasm module and executes an exported function to add two `i64`s together.
 
 ```rust
-use wasm3::environment::Environment;
-use wasm3::module::Module;
+use wasm3::Environment;
+use wasm3::Module;
 
 fn main() {
     let env = Environment::new().expect("Unable to create environment");

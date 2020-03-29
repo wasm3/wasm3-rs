@@ -1,26 +1,41 @@
+//! Error related functionality of wasm3.
 use core::cmp;
 use core::fmt;
 
 use crate::utils::cstr_to_str;
 
+/// Result alias that uses [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
-
+/// Result alias that uses [`Trap`].
 pub type TrappedResult<T> = core::result::Result<T, Trap>;
+
+/// A wasm trap.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Trap {
+    /// Out of bounds memory access
     OutOfBoundsMemoryAccess,
+    /// Division by zero
     DivisionByZero,
+    /// Integer overflow
     IntegerOverflow,
+    /// Integer conversion
     IntegerConversion,
+    /// Indirect call type mismatch
     IndirectCallTypeMismatch,
+    /// Table index out of range
     TableIndexOutOfRange,
+    /// Exit
     Exit,
+    /// Abort
     Abort,
+    /// Unreachable
     Unreachable,
+    /// Stack overflow
     StackOverflow,
 }
 
 impl Trap {
+    #[doc(hidden)]
     pub fn as_ptr(self) -> ffi::M3Result {
         unsafe {
             match self {
@@ -53,10 +68,12 @@ impl fmt::Display for Trap {
     }
 }
 
+/// Error returned by wasm3.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Wasm3Error(*const cty::c_char);
 
 impl Wasm3Error {
+    /// Check whether this error is the specified trap.
     pub fn is_trap(self, trap: Trap) -> bool {
         trap.as_ptr() == self.0
     }

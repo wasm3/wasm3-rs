@@ -16,7 +16,7 @@ fn main() {
 
     let mut module = rt.load_module(module).expect("Unable to load module");
     module
-        .link_closure("time", "millis", |()| MILLIS)
+        .link_closure("time", "millis", |_, ()| MILLIS)
         .expect("Unable to link closure");
     let func = module
         .find_function::<(), u64>("seconds")

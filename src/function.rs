@@ -9,6 +9,17 @@ use crate::utils::cstr_to_str;
 use crate::wasm3_priv;
 use crate::{WasmArgs, WasmType};
 
+pub struct CallContext {
+    runtime: ffi::IM3Runtime,
+    mem: *mut cty::c_void,
+}
+
+impl CallContext {
+    pub(crate) fn from_rt_mem(runtime: ffi::IM3Runtime, mem: *mut cty::c_void) -> CallContext {
+        CallContext { runtime, mem }
+    }
+}
+
 // redefine of ffi::RawCall without the Option<T> around it
 /// Type of a raw host function for wasm3.  
 pub type RawCall = unsafe extern "C" fn(

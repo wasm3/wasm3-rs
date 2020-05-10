@@ -4,7 +4,7 @@ use core::slice;
 
 use crate::environment::Environment;
 use crate::error::{Error, Result};
-use crate::function::{Function, NNM3Function, RawCall};
+use crate::function::{CallContext, Function, NNM3Function, RawCall};
 use crate::runtime::Runtime;
 use crate::utils::{cstr_to_str, eq_cstr_str};
 use crate::wasm3_priv;
@@ -106,7 +106,7 @@ impl<'rt> Module<'rt> {
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
-        F: FnMut(ARGS) -> RET + 'static,
+        F: for<'cc> FnMut(&'cc CallContext, ARGS) -> RET + 'static,
     {
         let func = self.find_import_function(module_name, function_name)?;
         Function::<'_, ARGS, RET>::validate_sig(func)?;
@@ -222,18 +222,18 @@ impl<'rt> Module<'rt> {
     where
         ARGS: crate::WasmArgs,
         RET: crate::WasmType,
-        F: FnMut(ARGS) -> RET + 'static,
+        F: for<'cc> FnMut(&'cc CallContext, ARGS) -> RET + 'static,
     {
         unsafe extern "C" fn _impl<ARGS, RET, F>(
             runtime: ffi::IM3Runtime,
             sp: ffi::m3stack_t,
-            _mem: *mut cty::c_void,
+            mem: *mut cty::c_void,
             closure: *mut cty::c_void,
         ) -> *const cty::c_void
         where
             ARGS: crate::WasmArgs,
             RET: crate::WasmType,
-            F: FnMut(ARGS) -> RET + 'static,
+            F: for<'cc> FnMut(&'cc CallContext, ARGS) -> RET + 'static,
         {
             // use https://doc.rust-lang.org/std/primitive.pointer.html#method.offset_from once stable
             let stack_base = (*runtime).stack as ffi::m3stack_t;
@@ -245,7 +245,8 @@ impl<'rt> Module<'rt> {
             );
 
             let args = ARGS::pop_from_stack(stack);
-            let ret = (&mut *closure.cast::<F>())(args);
+            let context = CallContext::from_rt_mem(runtime, mem);
+            let ret = (&mut *closure.cast::<F>())(&context, args);
             ret.push_on_stack(stack.cast());
             ffi::m3Err_none as _
         }

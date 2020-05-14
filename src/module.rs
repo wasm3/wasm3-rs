@@ -65,6 +65,11 @@ impl<'rt> Module<'rt> {
     }
 
     /// Links the given function to the corresponding module and function name.
+    /// This allows linking a more verbose function, as it gets access to the unsafe
+    /// runtime parts. For easier use the [`make_func_wrapper`] should be used to create
+    /// the unsafe facade for your function that then can be passed to this.
+    ///
+    /// For a simple API see [`link_closure`] which takes a closure instead.
     ///
     /// # Errors
     ///
@@ -73,6 +78,8 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
+    ///
+    /// [`link_closure`]: #method.link_closure
     pub fn link_function<ARGS, RET>(
         &mut self,
         module_name: &str,
@@ -89,6 +96,7 @@ impl<'rt> Module<'rt> {
     }
 
     /// Links the given closure to the corresponding module and function name.
+    /// This boxes the closure and therefor requires a heap allocation.
     ///
     /// # Errors
     ///
@@ -245,7 +253,10 @@ impl<'rt> Module<'rt> {
             );
 
             let args = ARGS::pop_from_stack(stack);
-            let context = CallContext::from_rt_mem(runtime, mem);
+            let context = CallContext::from_rt_mem(
+                NonNull::new_unchecked(runtime),
+                NonNull::new_unchecked(mem.cast()),
+            );
             let ret = (&mut *closure.cast::<F>())(&context, args);
             ret.push_on_stack(stack.cast());
             ffi::m3Err_none as _

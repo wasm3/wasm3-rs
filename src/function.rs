@@ -1,6 +1,6 @@
 use core::cmp::{Eq, PartialEq};
 use core::marker::PhantomData;
-use core::ptr::NonNull;
+use core::ptr::{self, NonNull};
 use core::str;
 
 use crate::error::{Error, Result};
@@ -10,13 +10,48 @@ use crate::wasm3_priv;
 use crate::{WasmArgs, WasmType};
 
 pub struct CallContext {
-    runtime: ffi::IM3Runtime,
-    mem: *mut cty::c_void,
+    runtime: NonNull<ffi::M3Runtime>,
+    mem: NonNull<ffi::M3Memory>,
 }
 
 impl CallContext {
-    pub(crate) fn from_rt_mem(runtime: ffi::IM3Runtime, mem: *mut cty::c_void) -> CallContext {
+    pub(crate) fn from_rt_mem(
+        runtime: NonNull<ffi::M3Runtime>,
+        mem: NonNull<ffi::M3Memory>,
+    ) -> CallContext {
         CallContext { runtime, mem }
+    }
+
+    /// Returns the raw memory of the runtime associated with this context.
+    ///
+    /// # Safety
+    ///
+    /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
+    pub unsafe fn memory(&self) -> *const [u8] {
+        let mallocated = (*self.mem.as_ptr()).mallocated;
+        let len = (*mallocated).length as usize;
+        let data = if len == 0 {
+            ptr::NonNull::dangling().as_ptr()
+        } else {
+            mallocated.offset(1).cast()
+        };
+        ptr::slice_from_raw_parts(data, len)
+    }
+
+    /// Returns the raw memory of the runtime associated with this context.
+    ///
+    /// # Safety
+    ///
+    /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
+    pub unsafe fn memory_mut(&self) -> *mut [u8] {
+        let mallocated = (*self.mem.as_ptr()).mallocated;
+        let len = (*mallocated).length as usize;
+        let data = if len == 0 {
+            ptr::NonNull::dangling().as_ptr()
+        } else {
+            mallocated.offset(1).cast()
+        };
+        ptr::slice_from_raw_parts_mut(data, len)
     }
 }
 
@@ -89,6 +124,7 @@ where
             rt,
             _pd: PhantomData,
         };
+        // make sure the function is compiled
         this.compile()
     }
 

@@ -1,6 +1,7 @@
 use core::cmp::{Eq, PartialEq};
 use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
+use core::slice;
 use core::str;
 
 use crate::error::{Error, Result};
@@ -9,6 +10,7 @@ use crate::utils::cstr_to_str;
 use crate::wasm3_priv;
 use crate::{WasmArgs, WasmType};
 
+/// Calling Context for a host function.
 pub struct CallContext {
     runtime: NonNull<ffi::M3Runtime>,
     mem: NonNull<ffi::M3Memory>,
@@ -56,7 +58,7 @@ impl CallContext {
 }
 
 // redefine of ffi::RawCall without the Option<T> around it
-/// Type of a raw host function for wasm3.  
+/// Type of a raw host function for wasm3.
 pub type RawCall = unsafe extern "C" fn(
     runtime: ffi::IM3Runtime,
     _sp: ffi::m3stack_t,
@@ -110,7 +112,9 @@ where
             numArgs: num,
             ..
         } = unsafe { &*func.as_mut().funcType };
-        match RET::TYPE_INDEX == ret && ARGS::validate_types(&args[..num as usize]) {
+        // argTypes is actually dynamically sized.
+        let args = unsafe { slice::from_raw_parts(args.as_ptr(), num as usize) };
+        match RET::TYPE_INDEX == ret && ARGS::validate_types(args) {
             true => Ok(()),
             false => Err(Error::InvalidFunctionSignature),
         }
@@ -188,7 +192,7 @@ macro_rules! func_call_impl {
     };
     (@do_impl) => {};
     (@do_impl $($types:ident,)*) => {
-        #[doc(hidden)] // this really pollutes the documentation
+    #[doc(hidden)] // this really pollutes the documentation
         impl<'rt, $($types,)* RET> Function<'rt, ($($types,)*), RET>
         where
             RET: WasmType,

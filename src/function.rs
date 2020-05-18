@@ -154,10 +154,7 @@ where
                 core::f64::NAN,
             )
         };
-        match self.rt.rt_error() {
-            Err(e) if ret.is_null() => Err(e),
-            _ => Ok(unsafe { RET::pop_from_stack(stack.cast()) }),
-        }
+        Error::from_ffi_res(ret.cast()).map(|()| unsafe { RET::pop_from_stack(stack.cast()) })
     }
 
     #[inline]

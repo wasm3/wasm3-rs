@@ -71,23 +71,23 @@ pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 /// This has a generic `call` function for up to 26 parameters emulating an overloading behaviour without having to resort to tuples.
 /// These are hidden to not pollute the documentation.
 #[derive(Debug, Copy, Clone)]
-pub struct Function<'rt, ARGS, RET> {
+pub struct Function<'rt, Args, Ret> {
     raw: NNM3Function,
     rt: &'rt Runtime,
-    _pd: PhantomData<*const (ARGS, RET)>,
+    _pd: PhantomData<*const (Args, Ret)>,
 }
 
-impl<'rt, ARGS, RET> Eq for Function<'rt, ARGS, RET> {}
-impl<'rt, ARGS, RET> PartialEq for Function<'rt, ARGS, RET> {
+impl<'rt, Args, Ret> Eq for Function<'rt, Args, Ret> {}
+impl<'rt, Args, Ret> PartialEq for Function<'rt, Args, Ret> {
     fn eq(&self, other: &Self) -> bool {
         self.raw == other.raw
     }
 }
 
-impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>
+impl<'rt, Args, Ret> Function<'rt, Args, Ret>
 where
-    ARGS: WasmArgs,
-    RET: WasmType,
+    Args: WasmArgs,
+    Ret: WasmType,
 {
     /// The name of the import module of this function.
     pub fn import_module_name(&self) -> &str {
@@ -100,10 +100,10 @@ where
     }
 }
 
-impl<'rt, ARGS, RET> Function<'rt, ARGS, RET>
+impl<'rt, Args, Ret> Function<'rt, Args, Ret>
 where
-    ARGS: WasmArgs,
-    RET: WasmType,
+    Args: WasmArgs,
+    Ret: WasmType,
 {
     pub(crate) fn validate_sig(mut func: NNM3Function) -> Result<()> {
         let &ffi::M3FuncType {
@@ -114,7 +114,7 @@ where
         } = unsafe { &*func.as_mut().funcType };
         // argTypes is actually dynamically sized.
         let args = unsafe { slice::from_raw_parts(args.as_ptr(), num as usize) };
-        match RET::TYPE_INDEX == ret && ARGS::validate_types(args) {
+        match Ret::TYPE_INDEX == ret && Args::validate_types(args) {
             true => Ok(()),
             false => Err(Error::InvalidFunctionSignature),
         }
@@ -142,7 +142,7 @@ where
         Ok(self)
     }
 
-    fn call_impl(&self, args: ARGS) -> Result<RET> {
+    fn call_impl(&self, args: Args) -> Result<Ret> {
         let stack = self.rt.stack_mut();
         let ret = unsafe {
             args.push_on_stack(stack);
@@ -154,7 +154,7 @@ where
                 core::f64::NAN,
             )
         };
-        Error::from_ffi_res(ret.cast()).map(|()| unsafe { RET::pop_from_stack(stack.cast()) })
+        Error::from_ffi_res(ret.cast()).map(|()| unsafe { Ret::pop_from_stack(stack.cast()) })
     }
 
     #[inline]
@@ -190,14 +190,14 @@ macro_rules! func_call_impl {
     (@do_impl) => {};
     (@do_impl $($types:ident,)*) => {
     #[doc(hidden)] // this really pollutes the documentation
-        impl<'rt, $($types,)* RET> Function<'rt, ($($types,)*), RET>
+        impl<'rt, $($types,)* Ret> Function<'rt, ($($types,)*), Ret>
         where
-            RET: WasmType,
+            Ret: WasmType,
             ($($types,)*): WasmArgs,
         {
             #[inline]
             #[allow(non_snake_case, clippy::too_many_arguments)]
-            pub fn call(&self, $($types: $types),*) -> Result<RET> {
+            pub fn call(&self, $($types: $types),*) -> Result<Ret> {
                 self.call_impl(($($types,)*))
             }
         }
@@ -205,27 +205,27 @@ macro_rules! func_call_impl {
 }
 func_call_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
 
-impl<'rt, ARG, RET> Function<'rt, ARG, RET>
+impl<'rt, ARG, Ret> Function<'rt, ARG, Ret>
 where
-    RET: WasmType,
+    Ret: WasmType,
     ARG: crate::WasmArg,
 {
     /// Calls this function with the given parameter.
-    /// This is implemented with variable arguments depending on the functions ARGS type.
+    /// This is implemented with variable arguments depending on the functions Args type.
     #[inline]
-    pub fn call(&self, arg: ARG) -> Result<RET> {
+    pub fn call(&self, arg: ARG) -> Result<Ret> {
         self.call_impl(arg)
     }
 }
 
-impl<'rt, RET> Function<'rt, (), RET>
+impl<'rt, Ret> Function<'rt, (), Ret>
 where
-    RET: WasmType,
+    Ret: WasmType,
 {
     /// Calls this function.
-    /// This is implemented with variable arguments depending on the functions ARGS type.
+    /// This is implemented with variable arguments depending on the functions Args type.
     #[inline]
-    pub fn call(&self) -> Result<RET> {
+    pub fn call(&self) -> Result<Ret> {
         self.call_impl(())
     }
 }

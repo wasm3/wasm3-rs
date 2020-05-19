@@ -168,10 +168,6 @@ impl Runtime {
         self.raw.as_ref().memory.mallocated
     }
 
-    pub(crate) fn rt_error(&self) -> Result<()> {
-        unsafe { Error::from_ffi_res(self.raw.as_ref().runtimeError) }
-    }
-
     pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
         unsafe { (*self.closure_store.get()).push(closure) };
     }

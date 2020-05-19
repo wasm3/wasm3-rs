@@ -80,18 +80,18 @@ impl<'rt> Module<'rt> {
     /// * the function has been found but the signature did not match
     ///
     /// [`link_closure`]: #method.link_closure
-    pub fn link_function<ARGS, RET>(
+    pub fn link_function<Args, Ret>(
         &mut self,
         module_name: &str,
         function_name: &str,
         f: RawCall,
     ) -> Result<()>
     where
-        ARGS: crate::WasmArgs,
-        RET: crate::WasmType,
+        Args: crate::WasmArgs,
+        Ret: crate::WasmType,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, ARGS, RET>::validate_sig(func)
+        Function::<'_, Args, Ret>::validate_sig(func)
             .and_then(|_| unsafe { self.link_func_impl(func, f) })
     }
 
@@ -105,19 +105,19 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
-    pub fn link_closure<ARGS, RET, F>(
+    pub fn link_closure<Args, Ret, F>(
         &mut self,
         module_name: &str,
         function_name: &str,
         closure: F,
     ) -> Result<()>
     where
-        ARGS: crate::WasmArgs,
-        RET: crate::WasmType,
-        F: for<'cc> FnMut(&'cc CallContext, ARGS) -> RET + 'static,
+        Args: crate::WasmArgs,
+        Ret: crate::WasmType,
+        F: for<'cc> FnMut(&'cc CallContext, Args) -> Ret + 'static,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, ARGS, RET>::validate_sig(func)?;
+        Function::<'_, Args, Ret>::validate_sig(func)?;
         let mut closure = Box::pin(closure);
         unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
         self.rt.push_closure(closure);
@@ -133,10 +133,10 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
-    pub fn find_function<ARGS, RET>(&self, function_name: &str) -> Result<Function<'rt, ARGS, RET>>
+    pub fn find_function<Args, Ret>(&self, function_name: &str) -> Result<Function<'rt, Args, Ret>>
     where
-        ARGS: crate::WasmArgs,
-        RET: crate::WasmType,
+        Args: crate::WasmArgs,
+        Ret: crate::WasmType,
     {
         let func = unsafe {
             slice::from_raw_parts_mut(
@@ -164,10 +164,10 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * the index is out of bounds
     /// * the function has been found but the signature did not match
-    pub fn function<ARGS, RET>(&self, function_index: usize) -> Result<Function<'rt, ARGS, RET>>
+    pub fn function<Args, Ret>(&self, function_index: usize) -> Result<Function<'rt, Args, Ret>>
     where
-        ARGS: crate::WasmArgs,
-        RET: crate::WasmType,
+        Args: crate::WasmArgs,
+        Ret: crate::WasmType,
     {
         let func = unsafe {
             slice::from_raw_parts_mut(
@@ -222,26 +222,26 @@ impl<'rt> Module<'rt> {
         }
     }
 
-    unsafe fn link_closure_impl<ARGS, RET, F>(
+    unsafe fn link_closure_impl<Args, Ret, F>(
         &self,
         mut m3_func: NNM3Function,
         closure: *mut F,
     ) -> Result<()>
     where
-        ARGS: crate::WasmArgs,
-        RET: crate::WasmType,
-        F: for<'cc> FnMut(&'cc CallContext, ARGS) -> RET + 'static,
+        Args: crate::WasmArgs,
+        Ret: crate::WasmType,
+        F: for<'cc> FnMut(&'cc CallContext, Args) -> Ret + 'static,
     {
-        unsafe extern "C" fn _impl<ARGS, RET, F>(
+        unsafe extern "C" fn _impl<Args, Ret, F>(
             runtime: ffi::IM3Runtime,
             sp: ffi::m3stack_t,
             mem: *mut cty::c_void,
             closure: *mut cty::c_void,
         ) -> *const cty::c_void
         where
-            ARGS: crate::WasmArgs,
-            RET: crate::WasmType,
-            F: for<'cc> FnMut(&'cc CallContext, ARGS) -> RET + 'static,
+            Args: crate::WasmArgs,
+            Ret: crate::WasmType,
+            F: for<'cc> FnMut(&'cc CallContext, Args) -> Ret + 'static,
         {
             // use https://doc.rust-lang.org/std/primitive.pointer.html#method.offset_from once stable
             let stack_base = (*runtime).stack as ffi::m3stack_t;
@@ -252,7 +252,7 @@ impl<'rt> Module<'rt> {
                 (*runtime).numStackSlots as usize - stack_occupied,
             );
 
-            let args = ARGS::pop_from_stack(stack);
+            let args = Args::pop_from_stack(stack);
             let context = CallContext::from_rt_mem(
                 NonNull::new_unchecked(runtime),
                 NonNull::new_unchecked(mem.cast()),
@@ -269,7 +269,7 @@ impl<'rt> Module<'rt> {
             m3_func.as_mut().compiled = wasm3_priv::GetPagePC(page);
             m3_func.as_mut().module = self.raw;
             wasm3_priv::EmitWord_impl(page, crate::wasm3_priv::op_CallRawFunctionEx as _);
-            wasm3_priv::EmitWord_impl(page, _impl::<ARGS, RET, F> as _);
+            wasm3_priv::EmitWord_impl(page, _impl::<Args, Ret, F> as _);
             wasm3_priv::EmitWord_impl(page, closure.cast());
 
             wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);

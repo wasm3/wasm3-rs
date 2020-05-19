@@ -150,8 +150,8 @@ where
                 self.raw.as_ref().compiled,
                 stack.cast(),
                 self.rt.mallocated(),
-                666,
-                core::f64::NAN,
+                0,
+                0.0,
             )
         };
         Error::from_ffi_res(ret.cast()).map(|()| unsafe { Ret::pop_from_stack(stack.cast()) })

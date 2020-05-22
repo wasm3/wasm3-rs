@@ -86,7 +86,10 @@ impl WasmArg for i32 {}
 impl WasmType for i32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
+    #[cfg(feature = "use-32bit-slots")]
+    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
     #[doc(hidden)]
+    #[cfg(not(feature = "use-32bit-slots"))]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
@@ -106,7 +109,10 @@ impl WasmArg for u32 {}
 impl WasmType for u32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
+    #[cfg(feature = "use-32bit-slots")]
+    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
     #[doc(hidden)]
+    #[cfg(not(feature = "use-32bit-slots"))]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
@@ -153,7 +159,7 @@ impl WasmType for u64 {
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
     #[doc(hidden)]
     #[cfg(feature = "use-32bit-slots")]
-    const SIZE_IN_SLOT_COUNT: usize = 2;
+    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
     #[doc(hidden)]
     #[cfg(not(feature = "use-32bit-slots"))]
     const SIZE_IN_SLOT_COUNT: usize = 1;
@@ -175,7 +181,10 @@ impl WasmArg for f32 {}
 impl WasmType for f32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_f32 as u8;
+    #[cfg(feature = "use-32bit-slots")]
+    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
     #[doc(hidden)]
+    #[cfg(not(feature = "use-32bit-slots"))]
     const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {

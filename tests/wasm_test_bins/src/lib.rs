@@ -1,7 +1,12 @@
 #![no_std]
 
 #[no_mangle]
-pub extern "C" fn add(foo: u64, bar: u64) -> u64 {
+pub extern "C" fn add_u64(foo: u64, bar: u64) -> u64 {
+    foo + bar
+}
+
+#[no_mangle]
+pub extern "C" fn add_u32(foo: u32, bar: u32) -> u32 {
     foo + bar
 }
 

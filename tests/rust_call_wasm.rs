@@ -15,11 +15,21 @@ fn module(rt: &Runtime) -> Module {
 }
 
 #[test]
-fn test_binary_func() {
+fn test_add_u64() {
     let rt = runtime();
     let module = module(&rt);
     let func = module
-        .find_function::<(u64, u64), u64>("add")
+        .find_function::<(u64, u64), u64>("add_u64")
+        .expect("Unable to find function");
+    assert_eq!(func.call(124, 612), Ok(736));
+}
+
+#[test]
+fn test_add_u32() {
+    let rt = runtime();
+    let module = module(&rt);
+    let func = module
+        .find_function::<(u32, u32), u32>("add_u32")
         .expect("Unable to find function");
     assert_eq!(func.call(124, 612), Ok(736));
 }

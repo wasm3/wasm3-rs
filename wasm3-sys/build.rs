@@ -9,12 +9,11 @@ static WASM3_SOURCE: &str = "wasm3/source";
 fn gen_bindings() {
     let whitelist_regex = "(?:I|c_)?[Mm]3.*";
 
-    let root_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     // TODO: we currently need the field definitions of the structs of wasm3. These aren't exposed
     // in the wasm3.h header so we have to generate bindings for more.
-    let wrapper_file = root_path.join("wrapper.h");
+    let wrapper_file = out_path.join("wrapper.h");
 
     let mut buffer = String::new();
     fs::read_dir(WASM3_SOURCE)
@@ -22,7 +21,14 @@ fn gen_bindings() {
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.extension().and_then(OsStr::to_str) == Some("h"))
-        .for_each(|path| writeln!(&mut buffer, "#include \"{}\"", path.to_str().unwrap()).unwrap());
+        .for_each(|path| {
+            writeln!(
+                &mut buffer,
+                "#include \"{}\"",
+                path.file_name().unwrap().to_str().unwrap()
+            )
+            .unwrap()
+        });
     fs::write(&wrapper_file, buffer).expect("failed to create wasm3 wrapper file");
 
     let mut bindgen = std::process::Command::new("bindgen");
@@ -60,7 +66,8 @@ fn gen_bindings() {
                 0
             }
         ))
-        .arg("-Dd_m3LogOutput=0");
+        .arg("-Dd_m3LogOutput=0")
+        .arg("-Iwasm3/source");
     let status = bindgen.status().expect("Unable to generate bindings");
     if !status.success() {
         panic!("Failed to run bindgen: {:?}", status);

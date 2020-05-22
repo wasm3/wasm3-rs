@@ -2,15 +2,15 @@ use std::env;
 use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 static WASM3_SOURCE: &str = "wasm3/source";
+const WHITELIST_REGEX: &str = "(?:I|c_)?[Mm]3.*";
+const PRIMITIVES: &[&str] = &[
+    "f64", "f32", "u64", "i64", "u32", "i32", "u16", "i16", "u8", "i8",
+];
 
-fn gen_bindings() {
-    let whitelist_regex = "(?:I|c_)?[Mm]3.*";
-
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-
+fn gen_wrapper(out_path: &Path) -> PathBuf {
     // TODO: we currently need the field definitions of the structs of wasm3. These aren't exposed
     // in the wasm3.h header so we have to generate bindings for more.
     let wrapper_file = out_path.join("wrapper.h");
@@ -30,6 +30,14 @@ fn gen_bindings() {
             .unwrap()
         });
     fs::write(&wrapper_file, buffer).expect("failed to create wasm3 wrapper file");
+    wrapper_file
+}
+
+#[cfg(not(feature = "build-bindgen"))]
+fn gen_bindings() {
+    let out_path = PathBuf::from(&env::var("OUT_DIR").unwrap());
+
+    let wrapper_file = gen_wrapper(&out_path);
 
     let mut bindgen = std::process::Command::new("bindgen");
     bindgen
@@ -41,15 +49,12 @@ fn gen_bindings() {
         .arg("--default-enum-style=moduleconsts")
         .arg("--no-doc-comments")
         .arg("--whitelist-function")
-        .arg(whitelist_regex)
+        .arg(WHITELIST_REGEX)
         .arg("--whitelist-type")
-        .arg(whitelist_regex)
+        .arg(WHITELIST_REGEX)
         .arg("--whitelist-var")
-        .arg(whitelist_regex)
+        .arg(WHITELIST_REGEX)
         .arg("--no-derive-debug");
-    const PRIMITIVES: &[&str] = &[
-        "f64", "f32", "u64", "i64", "u32", "i32", "u16", "i16", "u8", "i8",
-    ];
     for &ty in PRIMITIVES.iter() {
         bindgen.arg("--blacklist-type").arg(ty);
     }
@@ -72,6 +77,47 @@ fn gen_bindings() {
     if !status.success() {
         panic!("Failed to run bindgen: {:?}", status);
     }
+}
+
+#[cfg(feature = "build-bindgen")]
+fn gen_bindings() {
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+
+    let wrapper_file = gen_wrapper(&out_path);
+
+    let mut bindgen = bindgen::builder()
+        .header(wrapper_file.to_str().unwrap())
+        .use_core()
+        .ctypes_prefix("cty")
+        .layout_tests(false)
+        .default_enum_style(bindgen::EnumVariation::ModuleConsts)
+        .generate_comments(false)
+        .whitelist_function(WHITELIST_REGEX)
+        .whitelist_type(WHITELIST_REGEX)
+        .whitelist_var(WHITELIST_REGEX)
+        .derive_debug(false);
+    bindgen = PRIMITIVES
+        .iter()
+        .fold(bindgen, |bindgen, ty| bindgen.blacklist_type(ty));
+    bindgen
+        .clang_args(
+            [
+                &format!(
+                    "-Dd_m3Use32BitSlots={}",
+                    if cfg!(feature = "use-32bit-slots") {
+                        1
+                    } else {
+                        0
+                    }
+                ),
+                "-Dd_m3LogOutput=0",
+                "-Iwasm3/source",
+            ]
+            .iter(),
+        )
+        .generate()
+        .unwrap()
+        .write_to_file(out_path.join("bindings.rs").to_str().unwrap());
 }
 
 fn main() {

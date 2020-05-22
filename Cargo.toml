@@ -18,6 +18,8 @@ wasi = ["ffi/wasi"]
 std = []
 use-32bit-slots = ["ffi/use-32bit-slots"]
 
+build-bindgen = ["ffi/build-bindgen"]
+
 [dependencies]
 cty = "0.2"
 
@@ -27,6 +29,9 @@ package = "wasm3-sys"
 
 [dev-dependencies]
 trybuild = "1.0"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [workspace]
 members = ["wasm3-sys"]

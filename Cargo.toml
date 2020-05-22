@@ -9,7 +9,7 @@ repository = "https://github.com/Veykril/blend2d-rs"
 license = "MIT"
 readme = "README.md"
 categories = ["api-bindings"]
-exclude = ["examples/*"]
+exclude = ["examples/*", "tests/*"]
 
 [features]
 default = ["wasi", "std", "use-32bit-slots"]

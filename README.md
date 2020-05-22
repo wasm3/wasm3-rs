@@ -1,17 +1,12 @@
-# wasm3-rs ![Build](https://github.com/Veykril/wasm3-rs/workflows/Rust/badge.svg?branch=master) ![Tokei](https://tokei.rs/b1/github/veykril/wasm3-rs)
+# wasm3-rs 
+
+![Build](https://github.com/Veykril/wasm3-rs/workflows/Rust/badge.svg?branch=master) ![Tokei](https://tokei.rs/b1/github/veykril/wasm3-rs)
+[![Crates.io](https://img.shields.io/crates/v/wasm3.svg)](https://crates.io/crates/wasm3)
+[![Docs.rs](https://docs.rs/wasm3/badge.svg)](https://docs.rs/wasm3)
 
 Rust wrapper for [WASM3](https://github.com/wasm3/wasm3).
 
-This is currently work in progress and may or may not be sound.
-
-## Usage
-
-The crate has yet to be published on crates.io(there are a few things I wanna get done before publishing still), due to this one currently has to specify the crate as a git dependency:
-
-```toml
-[dependencies]
-wasm3 = { git = "https://github.com/Veykril/wasm3-rs.git" }
-```
+This is currently work in progress and may or may not be entirely sound.
 
 ## Sample
 
@@ -40,6 +35,8 @@ fn main() {
 ## Building
 This crate currently does not make use of the cmake project of wasm3, meaning cmake is not required to built this for the time being.
 It does however require [Clang 9](https://releases.llvm.org/download.html#9.0.0) to be installed as well as [Bindgen](https://github.com/rust-lang/rust-bindgen).
+
+The reason for having bindgen not be part of the build-dependencies is to cut down transitive dependencies as well as due to a bug in cargo pulling in more features of dependencies if used in build-deps.
 
 ## License
 Licensed under the MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)

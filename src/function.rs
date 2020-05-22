@@ -1,4 +1,5 @@
 use core::cmp::{Eq, PartialEq};
+use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
 use core::slice;
@@ -12,7 +13,7 @@ use crate::{WasmArgs, WasmType};
 
 /// Calling Context for a host function.
 pub struct CallContext {
-    runtime: NonNull<ffi::M3Runtime>,
+    _runtime: NonNull<ffi::M3Runtime>,
     mem: NonNull<ffi::M3Memory>,
 }
 
@@ -21,7 +22,10 @@ impl CallContext {
         runtime: NonNull<ffi::M3Runtime>,
         mem: NonNull<ffi::M3Memory>,
     ) -> CallContext {
-        CallContext { runtime, mem }
+        CallContext {
+            _runtime: runtime,
+            mem,
+        }
     }
 
     /// Returns the raw memory of the runtime associated with this context.
@@ -81,6 +85,12 @@ impl<'rt, Args, Ret> Eq for Function<'rt, Args, Ret> {}
 impl<'rt, Args, Ret> PartialEq for Function<'rt, Args, Ret> {
     fn eq(&self, other: &Self) -> bool {
         self.raw == other.raw
+    }
+}
+
+impl<'rt, Args, Ret> Hash for Function<'rt, Args, Ret> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.raw.hash(state);
     }
 }
 

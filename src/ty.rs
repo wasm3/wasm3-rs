@@ -52,6 +52,11 @@ unsafe fn write_u64_to_stack(stack: *mut ffi::m3slot_t, val: u64) {
     *stack = val;
 }
 
+#[cfg(feature = "use-32bit-slots")]
+const SIZE_IN_SLOT_COUNT: usize = 2;
+#[cfg(not(feature = "use-32bit-slots"))]
+const SIZE_IN_SLOT_COUNT: usize = 1;
+
 /// Trait implemented by types that can be passed to and from wasm.
 pub trait WasmType: Sized {
     #[doc(hidden)]
@@ -86,11 +91,8 @@ impl WasmArg for i32 {}
 impl WasmType for i32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
-    #[cfg(feature = "use-32bit-slots")]
-    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
     #[doc(hidden)]
-    #[cfg(not(feature = "use-32bit-slots"))]
-    const SIZE_IN_SLOT_COUNT: usize = 1;
+    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         read_u32_from_stack(stack) as i32
@@ -109,11 +111,8 @@ impl WasmArg for u32 {}
 impl WasmType for u32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
-    #[cfg(feature = "use-32bit-slots")]
-    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
     #[doc(hidden)]
-    #[cfg(not(feature = "use-32bit-slots"))]
-    const SIZE_IN_SLOT_COUNT: usize = 1;
+    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         read_u32_from_stack(stack)
@@ -133,11 +132,7 @@ impl WasmType for i64 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
     #[doc(hidden)]
-    #[cfg(feature = "use-32bit-slots")]
-    const SIZE_IN_SLOT_COUNT: usize = 2;
-    #[doc(hidden)]
-    #[cfg(not(feature = "use-32bit-slots"))]
-    const SIZE_IN_SLOT_COUNT: usize = 1;
+    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
 
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
@@ -158,11 +153,7 @@ impl WasmType for u64 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
     #[doc(hidden)]
-    #[cfg(feature = "use-32bit-slots")]
-    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
-    #[doc(hidden)]
-    #[cfg(not(feature = "use-32bit-slots"))]
-    const SIZE_IN_SLOT_COUNT: usize = 1;
+    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         read_u64_from_stack(stack)
@@ -181,11 +172,8 @@ impl WasmArg for f32 {}
 impl WasmType for f32 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_f32 as u8;
-    #[cfg(feature = "use-32bit-slots")]
-    const SIZE_IN_SLOT_COUNT: usize = 2; // cause alignment to u64 boundaries in the stack
     #[doc(hidden)]
-    #[cfg(not(feature = "use-32bit-slots"))]
-    const SIZE_IN_SLOT_COUNT: usize = 1;
+    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         f32::from_ne_bytes(read_u32_from_stack(stack).to_ne_bytes())
@@ -205,11 +193,7 @@ impl WasmType for f64 {
     #[doc(hidden)]
     const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_f64 as u8;
     #[doc(hidden)]
-    #[cfg(feature = "use-32bit-slots")]
-    const SIZE_IN_SLOT_COUNT: usize = 2;
-    #[doc(hidden)]
-    #[cfg(not(feature = "use-32bit-slots"))]
-    const SIZE_IN_SLOT_COUNT: usize = 1;
+    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
     #[doc(hidden)]
     unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
         f64::from_ne_bytes(read_u64_from_stack(stack).to_ne_bytes())

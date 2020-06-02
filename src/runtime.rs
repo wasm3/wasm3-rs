@@ -112,6 +112,15 @@ impl Runtime {
         })
     }
 
+    /// Resizes the number of allocatable pages to num_pages.
+    ///
+    /// # Errors
+    ///
+    /// This function will error out if it failed to resize memory allocation.
+    pub fn resize_memory<'rt>(&'rt self, num_pages: u32) -> Result<()> {
+        Error::from_ffi_res(unsafe { ffi::ResizeMemory(self.raw.as_ptr(), num_pages) })
+    }
+
     /// Returns the raw memory of this runtime.
     ///
     /// # Safety

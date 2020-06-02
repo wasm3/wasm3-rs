@@ -5,7 +5,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 static WASM3_SOURCE: &str = "wasm3/source";
-const WHITELIST_REGEX: &str = "(?:I|c_)?[Mm]3.*";
+const WHITELIST_REGEX_FUNCTION: &str = "([A-Z]|m3_).*";
+const WHITELIST_REGEX_TYPE: &str = "(?:I|c_)?[Mm]3.*";
+const WHITELIST_REGEX_VAR: &str = WHITELIST_REGEX_TYPE;
 const PRIMITIVES: &[&str] = &[
     "f64", "f32", "u64", "i64", "u32", "i32", "u16", "i16", "u8", "i8",
 ];
@@ -49,11 +51,11 @@ fn gen_bindings() {
         .arg("--default-enum-style=moduleconsts")
         .arg("--no-doc-comments")
         .arg("--whitelist-function")
-        .arg(WHITELIST_REGEX)
+        .arg(WHITELIST_REGEX_FUNCTION)
         .arg("--whitelist-type")
-        .arg(WHITELIST_REGEX)
+        .arg(WHITELIST_REGEX_TYPE)
         .arg("--whitelist-var")
-        .arg(WHITELIST_REGEX)
+        .arg(WHITELIST_REGEX_VAR)
         .arg("--no-derive-debug");
     for &ty in PRIMITIVES.iter() {
         bindgen.arg("--blacklist-type").arg(ty);

@@ -31,6 +31,11 @@ pub extern "C" fn u32() -> u32 {
 #[no_mangle]
 pub extern "C" fn empty() {}
 
+#[no_mangle]
+pub extern "C" fn memory_size() -> u32 {
+    core::arch::wasm32::memory_size(0) as u32
+}
+
 #[panic_handler]
 fn handle_panic(_: &core::panic::PanicInfo) -> ! {
     unreachable!()

@@ -33,8 +33,10 @@ fn main() {
 ```
 
 ## Building
+
 This crate currently does not make use of the cmake project of wasm3, meaning cmake is not required to built this for the time being.
 It does however require [Clang 9](https://releases.llvm.org/download.html#9.0.0) to be installed as well as [Bindgen](https://github.com/rust-lang/rust-bindgen), should the `build-bindgen` feature not be set.
 
 ## License
-Licensed under the MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+Licensed under the MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)

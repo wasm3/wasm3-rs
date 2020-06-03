@@ -69,7 +69,7 @@ impl fmt::Display for Trap {
 }
 
 /// Error returned by wasm3.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Wasm3Error(*const cty::c_char);
 
 impl Wasm3Error {
@@ -87,6 +87,11 @@ impl cmp::PartialEq<Trap> for Wasm3Error {
 
 #[cfg(feature = "std")]
 impl std::error::Error for Wasm3Error {}
+impl fmt::Debug for Wasm3Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(unsafe { cstr_to_str(self.0) }, f)
+    }
+}
 impl fmt::Display for Wasm3Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(unsafe { cstr_to_str(self.0) }, f)

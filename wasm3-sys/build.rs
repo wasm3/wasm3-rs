@@ -94,9 +94,9 @@ fn gen_bindings() {
         .layout_tests(false)
         .default_enum_style(bindgen::EnumVariation::ModuleConsts)
         .generate_comments(false)
-        .whitelist_function(WHITELIST_REGEX)
-        .whitelist_type(WHITELIST_REGEX)
-        .whitelist_var(WHITELIST_REGEX)
+        .whitelist_function(WHITELIST_REGEX_FUNCTION)
+        .whitelist_type(WHITELIST_REGEX_TYPE)
+        .whitelist_var(WHITELIST_REGEX_VAR)
         .derive_debug(false);
     bindgen = PRIMITIVES
         .iter()
@@ -118,8 +118,9 @@ fn gen_bindings() {
             .iter(),
         )
         .generate()
-        .unwrap()
-        .write_to_file(out_path.join("bindings.rs").to_str().unwrap());
+        .expect("Failed to generate bindings")
+        .write_to_file(out_path.join("bindings.rs").to_str().unwrap())
+        .expect("Failed to write bindings");
 }
 
 fn main() {

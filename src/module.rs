@@ -235,7 +235,7 @@ impl<'rt> Module<'rt> {
         unsafe extern "C" fn _impl<Args, Ret, F>(
             runtime: ffi::IM3Runtime,
             sp: ffi::m3stack_t,
-            mem: *mut cty::c_void,
+            _mem: *mut cty::c_void,
             closure: *mut cty::c_void,
         ) -> *const cty::c_void
         where
@@ -253,10 +253,7 @@ impl<'rt> Module<'rt> {
             );
 
             let args = Args::pop_from_stack(stack);
-            let context = CallContext::from_rt_mem(
-                NonNull::new_unchecked(runtime),
-                NonNull::new_unchecked(mem.cast()),
-            );
+            let context = CallContext::from_rt(NonNull::new_unchecked(runtime));
             let ret = (&mut *closure.cast::<F>())(&context, args);
             ret.push_on_stack(stack.cast());
             ffi::m3Err_none as _

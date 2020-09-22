@@ -95,6 +95,7 @@ impl Runtime {
                 if eq_cstr_str(raw_mod.as_ref().name, name) {
                     return Ok(Module::from_raw(self, raw_mod.as_ptr()));
                 }
+
                 module = ptr::NonNull::new(raw_mod.as_ref().next);
             }
             Err(Error::ModuleNotFound)
@@ -117,7 +118,7 @@ impl Runtime {
     /// # Errors
     ///
     /// This function will error out if it failed to resize memory allocation.
-    pub fn resize_memory<'rt>(&'rt self, num_pages: u32) -> Result<()> {
+    pub fn resize_memory(&self, num_pages: u32) -> Result<()> {
         Error::from_ffi_res(unsafe { ffi::ResizeMemory(self.raw.as_ptr(), num_pages) })
     }
 

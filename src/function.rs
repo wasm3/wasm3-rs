@@ -13,19 +13,16 @@ use crate::{WasmArgs, WasmType};
 
 /// Calling Context for a host function.
 pub struct CallContext {
-    _runtime: NonNull<ffi::M3Runtime>,
-    mem: NonNull<ffi::M3Memory>,
+    runtime: NonNull<ffi::M3Runtime>,
 }
 
 impl CallContext {
-    pub(crate) fn from_rt_mem(
-        runtime: NonNull<ffi::M3Runtime>,
-        mem: NonNull<ffi::M3Memory>,
-    ) -> CallContext {
-        CallContext {
-            _runtime: runtime,
-            mem,
-        }
+    pub(crate) fn from_rt(runtime: NonNull<ffi::M3Runtime>) -> CallContext {
+        CallContext { runtime }
+    }
+
+    unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
+        self.runtime.as_ref().memory.mallocated
     }
 
     /// Returns the raw memory of the runtime associated with this context.
@@ -34,7 +31,7 @@ impl CallContext {
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
     pub unsafe fn memory(&self) -> *const [u8] {
-        let mallocated = (*self.mem.as_ptr()).mallocated;
+        let mallocated = self.mallocated();
         let len = (*mallocated).length as usize;
         let data = if len == 0 {
             ptr::NonNull::dangling().as_ptr()
@@ -50,7 +47,7 @@ impl CallContext {
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
     pub unsafe fn memory_mut(&self) -> *mut [u8] {
-        let mallocated = (*self.mem.as_ptr()).mallocated;
+        let mallocated = self.mallocated();
         let len = (*mallocated).length as usize;
         let data = if len == 0 {
             ptr::NonNull::dangling().as_ptr()

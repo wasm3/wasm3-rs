@@ -37,8 +37,8 @@ impl Environment {
     ///
     /// This function will error on memory allocation failure.
     #[inline]
-    pub fn create_runtime(&self, stack_size: u32) -> Result<Runtime> {
-        Runtime::new(self, stack_size)
+    pub fn create_runtime(&self, stack_size: u32) -> Result<Rc<Runtime>> {
+        Runtime::new(self, stack_size).map(Rc::new)
     }
 
     /// Parses a wasm module from raw bytes.

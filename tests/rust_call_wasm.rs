@@ -1,15 +1,17 @@
+use std::rc::Rc;
+
 use wasm3::Environment;
 use wasm3::Module;
 use wasm3::Runtime;
 
-fn runtime() -> Runtime {
+fn runtime() -> Rc<Runtime> {
     Environment::new()
         .expect("Unable to create environment")
         .create_runtime(1024 * 60)
         .expect("Unable to create runtime")
 }
 
-fn module(rt: &Runtime) -> Module {
+fn module(rt: &Rc<Runtime>) -> Module {
     rt.parse_and_load_module(&include_bytes!("wasm_test_bins/wasm_test_bins.wasm")[..])
         .expect("Unable to load module")
 }

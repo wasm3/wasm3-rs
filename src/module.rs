@@ -1,4 +1,6 @@
 use alloc::boxed::Box;
+use alloc::rc::Rc;
+
 use core::ptr::{self, NonNull};
 use core::slice;
 
@@ -52,12 +54,12 @@ impl Drop for ParsedModule {
 
 /// A loaded module belonging to a specific runtime. Allows for linking and looking up functions.
 // needs no drop as loaded modules will be cleaned up by the runtime
-pub struct Module<'rt> {
+pub struct Module {
     raw: ffi::IM3Module,
-    rt: &'rt Runtime,
+    rt: Rc<Runtime>,
 }
 
-impl<'rt> Module<'rt> {
+impl Module {
     /// Parses a wasm module from raw bytes.
     #[inline]
     pub fn parse(environment: &Environment, bytes: &[u8]) -> Result<ParsedModule> {
@@ -91,7 +93,7 @@ impl<'rt> Module<'rt> {
         Ret: crate::WasmType,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, Args, Ret>::validate_sig(func)
+        Function::<Args, Ret>::validate_sig(func)
             .and_then(|_| unsafe { self.link_func_impl(func, f) })
     }
 
@@ -117,7 +119,7 @@ impl<'rt> Module<'rt> {
         F: for<'cc> FnMut(CallContext<'cc>, Args) -> Ret + 'static,
     {
         let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, Args, Ret>::validate_sig(func)?;
+        Function::<Args, Ret>::validate_sig(func)?;
         let mut closure = Box::pin(closure);
         unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
         self.rt.push_closure(closure);
@@ -133,7 +135,7 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
-    pub fn find_function<Args, Ret>(&self, function_name: &str) -> Result<Function<'rt, Args, Ret>>
+    pub fn find_function<Args, Ret>(&self, function_name: &str) -> Result<Function<Args, Ret>>
     where
         Args: crate::WasmArgs,
         Ret: crate::WasmType,
@@ -152,7 +154,7 @@ impl<'rt> Module<'rt> {
             .map(NonNull::from)
             .ok_or(Error::FunctionNotFound)?
         };
-        Function::from_raw(self.rt, func).and_then(Function::compile)
+        Function::from_raw(self.rt.clone(), func).and_then(Function::compile)
     }
 
     /// Looks up a function by its index in this module.
@@ -164,7 +166,7 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * the index is out of bounds
     /// * the function has been found but the signature did not match
-    pub fn function<Args, Ret>(&self, function_index: usize) -> Result<Function<'rt, Args, Ret>>
+    pub fn function<Args, Ret>(&self, function_index: usize) -> Result<Function<Args, Ret>>
     where
         Args: crate::WasmArgs,
         Ret: crate::WasmType,
@@ -182,7 +184,7 @@ impl<'rt> Module<'rt> {
             .map(NonNull::from)
             .ok_or(Error::FunctionNotFound)?
         };
-        Function::from_raw(self.rt, func).and_then(Function::compile)
+        Function::from_raw(self.rt.clone(), func).and_then(Function::compile)
     }
 
     /// The name of this module.
@@ -202,8 +204,8 @@ impl<'rt> Module<'rt> {
     }
 }
 
-impl<'rt> Module<'rt> {
-    pub(crate) fn from_raw(rt: &'rt Runtime, raw: ffi::IM3Module) -> Self {
+impl Module {
+    pub(crate) fn from_raw(rt: Rc<Runtime>, raw: ffi::IM3Module) -> Self {
         Module { raw, rt }
     }
 

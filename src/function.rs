@@ -12,13 +12,17 @@ use crate::wasm3_priv;
 use crate::{WasmArgs, WasmType};
 
 /// Calling Context for a host function.
-pub struct CallContext {
+pub struct CallContext<'cc> {
     runtime: NonNull<ffi::M3Runtime>,
+    _pd: PhantomData<fn(&'cc ()) -> &'cc ()>,
 }
 
-impl CallContext {
-    pub(crate) fn from_rt(runtime: NonNull<ffi::M3Runtime>) -> CallContext {
-        CallContext { runtime }
+impl<'cc> CallContext<'cc> {
+    pub(crate) fn from_rt(runtime: NonNull<ffi::M3Runtime>) -> CallContext<'cc> {
+        CallContext {
+            runtime,
+            _pd: PhantomData,
+        }
     }
 
     unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {

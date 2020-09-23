@@ -114,7 +114,7 @@ impl<'rt> Module<'rt> {
     where
         Args: crate::WasmArgs,
         Ret: crate::WasmType,
-        F: for<'cc> FnMut(&'cc CallContext, Args) -> Ret + 'static,
+        F: for<'cc> FnMut(CallContext<'cc>, Args) -> Ret + 'static,
     {
         let func = self.find_import_function(module_name, function_name)?;
         Function::<'_, Args, Ret>::validate_sig(func)?;
@@ -230,7 +230,7 @@ impl<'rt> Module<'rt> {
     where
         Args: crate::WasmArgs,
         Ret: crate::WasmType,
-        F: for<'cc> FnMut(&'cc CallContext, Args) -> Ret + 'static,
+        F: for<'cc> FnMut(CallContext<'cc>, Args) -> Ret + 'static,
     {
         unsafe extern "C" fn _impl<Args, Ret, F>(
             runtime: ffi::IM3Runtime,
@@ -241,7 +241,7 @@ impl<'rt> Module<'rt> {
         where
             Args: crate::WasmArgs,
             Ret: crate::WasmType,
-            F: for<'cc> FnMut(&'cc CallContext, Args) -> Ret + 'static,
+            F: for<'cc> FnMut(CallContext<'cc>, Args) -> Ret + 'static,
         {
             // use https://doc.rust-lang.org/std/primitive.pointer.html#method.offset_from once stable
             let stack_base = (*runtime).stack as ffi::m3stack_t;
@@ -254,7 +254,7 @@ impl<'rt> Module<'rt> {
 
             let args = Args::pop_from_stack(stack);
             let context = CallContext::from_rt(NonNull::new_unchecked(runtime));
-            let ret = (&mut *closure.cast::<F>())(&context, args);
+            let ret = (&mut *closure.cast::<F>())(context, args);
             ret.push_on_stack(stack.cast());
             ffi::m3Err_none as _
         }

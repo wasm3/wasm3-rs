@@ -125,8 +125,9 @@ fn gen_bindings() {
 
 fn main() {
     gen_bindings();
-    // build
+
     let mut cfg = cc::Build::new();
+
     cfg.files(
         fs::read_dir(WASM3_SOURCE)
             .unwrap_or_else(|_| panic!("failed to read {} directory", WASM3_SOURCE))
@@ -134,15 +135,29 @@ fn main() {
             .map(|entry| entry.path())
             .filter(|p| p.extension().and_then(OsStr::to_str) == Some("c")),
     );
-    let cfg = cfg
-        .warnings(false)
-        .cpp(false)
+
+    cfg.cpp(false)
         .define("d_m3LogOutput", Some("0"))
+        .warnings(false)
         .extra_warnings(false)
         .include(WASM3_SOURCE);
+
+    // Add any extra arguments from the environment to the CC command line.
+    if let Some(extra_clang_args) = std::env::var("BINDGEN_EXTRA_CLANG_ARGS").ok() {
+        // Try to parse it with shell quoting. If we fail, make it one single big argument.
+        if let Some(strings) = shlex::split(&extra_clang_args) {
+            strings.iter().for_each(|string| {
+                cfg.flag(string);
+            })
+        } else {
+            cfg.flag(&extra_clang_args);
+        };
+    }
+
     if cfg!(feature = "wasi") {
         cfg.define("d_m3HasWASI", None);
     }
+
     cfg.define(
         "d_m3Use32BitSlots",
         if cfg!(feature = "use-32bit-slots") {

@@ -143,7 +143,7 @@ fn main() {
         .include(WASM3_SOURCE);
 
     // Add any extra arguments from the environment to the CC command line.
-    if let Some(extra_clang_args) = std::env::var("BINDGEN_EXTRA_CLANG_ARGS").ok() {
+    if let Ok(extra_clang_args) = std::env::var("BINDGEN_EXTRA_CLANG_ARGS") {
         // Try to parse it with shell quoting. If we fail, make it one single big argument.
         if let Some(strings) = shlex::split(&extra_clang_args) {
             strings.iter().for_each(|string| {

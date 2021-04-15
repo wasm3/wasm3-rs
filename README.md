@@ -4,6 +4,8 @@
 [![Crates.io](https://img.shields.io/crates/v/wasm3.svg)](https://crates.io/crates/wasm3)
 [![Docs.rs](https://docs.rs/wasm3/badge.svg)](https://docs.rs/wasm3)
 
+## Unmaintained: I do not have the time nor interest in keeping this library up to date anymore. If you wish to take the project over feel free to reach out to me.
+
 Rust wrapper for [WASM3](https://github.com/wasm3/wasm3).
 
 This is currently work in progress and may or may not be entirely sound.

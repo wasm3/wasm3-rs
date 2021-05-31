@@ -35,53 +35,6 @@ fn gen_wrapper(out_path: &Path) -> PathBuf {
     wrapper_file
 }
 
-#[cfg(not(feature = "build-bindgen"))]
-fn gen_bindings() {
-    let out_path = PathBuf::from(&env::var("OUT_DIR").unwrap());
-
-    let wrapper_file = gen_wrapper(&out_path);
-
-    let mut bindgen = std::process::Command::new("bindgen");
-    bindgen
-        .arg(wrapper_file)
-        .arg("--use-core")
-        .arg("--ctypes-prefix")
-        .arg("cty")
-        .arg("--no-layout-tests")
-        .arg("--default-enum-style=moduleconsts")
-        .arg("--no-doc-comments")
-        .arg("--whitelist-function")
-        .arg(WHITELIST_REGEX_FUNCTION)
-        .arg("--whitelist-type")
-        .arg(WHITELIST_REGEX_TYPE)
-        .arg("--whitelist-var")
-        .arg(WHITELIST_REGEX_VAR)
-        .arg("--no-derive-debug");
-    for &ty in PRIMITIVES.iter() {
-        bindgen.arg("--blacklist-type").arg(ty);
-    }
-    bindgen
-        .arg("-o")
-        .arg(out_path.join("bindings.rs").to_str().unwrap());
-    bindgen
-        .arg("--")
-        .arg(format!(
-            "-Dd_m3Use32BitSlots={}",
-            if cfg!(feature = "use-32bit-slots") {
-                1
-            } else {
-                0
-            }
-        ))
-        .arg("-Dd_m3LogOutput=0")
-        .arg("-Iwasm3/source");
-    let status = bindgen.status().expect("Unable to generate bindings");
-    if !status.success() {
-        panic!("Failed to run bindgen: {:?}", status);
-    }
-}
-
-#[cfg(feature = "build-bindgen")]
 fn gen_bindings() {
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
@@ -94,13 +47,15 @@ fn gen_bindings() {
         .layout_tests(false)
         .default_enum_style(bindgen::EnumVariation::ModuleConsts)
         .generate_comments(false)
-        .whitelist_function(WHITELIST_REGEX_FUNCTION)
-        .whitelist_type(WHITELIST_REGEX_TYPE)
-        .whitelist_var(WHITELIST_REGEX_VAR)
+        .allowlist_function(WHITELIST_REGEX_FUNCTION)
+        .allowlist_type(WHITELIST_REGEX_TYPE)
+        .allowlist_var(WHITELIST_REGEX_VAR)
         .derive_debug(false);
+
     bindgen = PRIMITIVES
         .iter()
-        .fold(bindgen, |bindgen, ty| bindgen.blacklist_type(ty));
+        .fold(bindgen, |bindgen, ty| bindgen.blocklist_type(ty));
+
     bindgen
         .clang_args(
             [

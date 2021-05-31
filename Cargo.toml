@@ -18,8 +18,6 @@ wasi = ["ffi/wasi"]
 std = []
 use-32bit-slots = ["ffi/use-32bit-slots"]
 
-build-bindgen = ["ffi/build-bindgen"]
-
 [dependencies]
 cty = "0.2"
 

@@ -15,7 +15,6 @@ include = ["wasm3/source/**/*", "src/**/*", "Cargo.toml", "build.rs"]
 [features]
 wasi = []
 use-32bit-slots = []
-build-bindgen = ["bindgen"]
 
 [dependencies]
 cty = "0.2"
@@ -23,10 +22,7 @@ cty = "0.2"
 [build-dependencies]
 cc = "1"
 shlex = "0.1.1"
-
-[build-dependencies.bindgen]
-version = "0.54"
-optional = true
+bindgen = "0.58.1"
 
 [package.metadata.docs.rs]
 all-features = true

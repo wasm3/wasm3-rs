@@ -21,7 +21,7 @@ use wasm3::Module;
 fn main() {
     let env = Environment::new().expect("Unable to create environment");
     let rt = env
-        .create_runtime(1024 * 60)
+        .create_runtime(1024)
         .expect("Unable to create runtime");
     let module = Module::parse(&env, &include_bytes!("wasm/wasm_add/wasm_add.wasm")[..])
         .expect("Unable to parse module");
@@ -38,6 +38,14 @@ fn main() {
 
 This crate currently does not make use of the cmake project of wasm3, meaning cmake is not required to built this for the time being.
 It does however require [Clang 9](https://releases.llvm.org/download.html#9.0.0) to be installed as well as [Bindgen](https://github.com/rust-lang/rust-bindgen), should the `build-bindgen` feature not be set.
+
+```sh
+cargo install bindgen
+cargo build --release
+
+# or:
+cargo build --release --no-default-features --features build-bindgen
+```
 
 ## License
 

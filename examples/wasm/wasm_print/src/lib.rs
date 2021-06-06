@@ -1,7 +1,7 @@
 #![no_std]
 
 #[no_mangle]
-pub unsafe extern "C" fn print_hello_world() {
+pub unsafe extern "C" fn _start() {
     let stdout = 1;
     let message = "Hello, World!\n";
     let data = [wasi::Ciovec {

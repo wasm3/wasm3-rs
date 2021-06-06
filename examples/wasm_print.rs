@@ -13,7 +13,7 @@ fn main() {
     let mut module = rt.load_module(module).expect("Unable to load module");
     module.link_wasi().expect("Failed to link wasi");
     let func = module
-        .find_function::<(), ()>("print_hello_world")
+        .find_function::<(), ()>("_start")
         .expect("Unable to find function");
     func.call().unwrap();
 }

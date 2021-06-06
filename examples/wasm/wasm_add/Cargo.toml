@@ -8,4 +8,8 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
+[profile.release]
+opt-level = 3
+lto = true
+
 [workspace]

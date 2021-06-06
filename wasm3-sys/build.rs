@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-static WASM3_SOURCE: &str = "wasm3/source";
+static WASM3_SOURCE: &str = "wasm3";
 const WHITELIST_REGEX_FUNCTION: &str = "([A-Z]|m3_).*";
 const WHITELIST_REGEX_TYPE: &str = "(?:I|c_)?[Mm]3.*";
 const WHITELIST_REGEX_VAR: &str = WHITELIST_REGEX_TYPE;
@@ -74,7 +74,7 @@ fn gen_bindings() {
             }
         ))
         .arg("-Dd_m3LogOutput=0")
-        .arg("-Iwasm3/source");
+        .arg("-Iwasm3");
     let status = bindgen.status().expect("Unable to generate bindings");
     if !status.success() {
         panic!("Failed to run bindgen: {:?}", status);
@@ -113,7 +113,7 @@ fn gen_bindings() {
                     }
                 ),
                 "-Dd_m3LogOutput=0",
-                "-Iwasm3/source",
+                "-Iwasm3",
             ]
             .iter(),
         )

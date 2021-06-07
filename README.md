@@ -44,8 +44,25 @@ cargo install bindgen
 cargo build --release
 
 # or:
-cargo build --release --no-default-features --features build-bindgen
+cargo build --release --features build-bindgen
+
+# or, enable only specific features:
+cargo build --release --no-default-features --features build-bindgen,std,use-32bit-slots,wasi
 ```
+
+
+## Build and run examples
+
+```sh
+rustup target add wasm32-unknown-unknown
+
+python wasm_bin_builder.py ./examples/wasm/wasm_add
+cargo run --example call_wasm
+
+python wasm_bin_builder.py ./examples/wasm/wasm_print
+cargo run --example wasm_print
+```
+
 
 ## License
 

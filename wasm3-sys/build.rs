@@ -67,6 +67,14 @@ fn gen_bindings() {
                         0
                     }
                 ),
+                &format!(
+                    "-Dd_m3HasFloat={}",
+                    if cfg!(feature = "floats") {
+                        1
+                    } else {
+                        0
+                    }
+                ),
                 "-Dd_m3LogOutput=0",
                 "-Iwasm3/source",
             ]
@@ -116,6 +124,14 @@ fn main() {
     cfg.define(
         "d_m3Use32BitSlots",
         if cfg!(feature = "use-32bit-slots") {
+            Some("1")
+        } else {
+            Some("0")
+        },
+    );
+    cfg.define(
+        "d_m3HasFloat",
+        if cfg!(feature = "floats") {
             Some("1")
         } else {
             Some("0")

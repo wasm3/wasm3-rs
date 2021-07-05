@@ -1,35 +1,28 @@
 [package]
 name = "wasm3"
-version = "0.1.3"
-authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
+version = "0.2.0"
+authors = [
+    "Oasis Protocol Foundation <info@oasisprotocol.org>",
+    "Lukas Tobias Wirth <lukastw97@gmail.com>"
+]
 edition = "2018"
 description = "Rust bindings for wasm3"
-homepage = "https://github.com/Veykril/wasm3-rs"
-repository = "https://github.com/Veykril/wasm3-rs"
 license = "MIT"
-readme = "README.md"
 categories = ["api-bindings"]
-exclude = ["examples/*", "tests/*"]
-
-[features]
-default = ["wasi", "std", "use-32bit-slots"]
-
-wasi = ["ffi/wasi"]
-std = []
-use-32bit-slots = ["ffi/use-32bit-slots"]
 
 [dependencies]
 cty = "0.2"
+thiserror = "1.0"
+impl-trait-for-tuples = "0.2.1"
 
 [dependencies.ffi]
 path = "wasm3-sys"
 package = "wasm3-sys"
+default-features = false
 
-[dev-dependencies]
-trybuild = "1.0"
+[target.x86_64-fortanix-unknown-sgx.dependencies]
+rs-libc = "0.2.3"
 
-[package.metadata.docs.rs]
-all-features = true
-
-[workspace]
-members = ["wasm3-sys"]
+[features]
+default = []
+floats = ["ffi/floats"]

@@ -1,0 +1,45 @@
+# NOTE: This name appears in GitHub's Checks API and in workflow's status badge.
+name: ci-lint
+
+# Trigger the workflow when:
+on:
+  # A push occurs to one of the matched branches.
+  push:
+    branches:
+      - master
+  # Or when a pull request event occurs for a pull request against one of the
+  # matched branches.
+  pull_request:
+    branches:
+      - master
+
+jobs:
+
+  lint-rust:
+    # NOTE: This name appears in GitHub's Checks API.
+    name: lint-rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+          override: true
+
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features -- -D warnings -D clippy::dbg_macro
+
+      - name: Formatting check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check

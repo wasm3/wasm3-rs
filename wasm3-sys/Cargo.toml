@@ -1,6 +1,6 @@
 [package]
 name = "wasm3-sys"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
 edition = "2018"
 description = "Raw ffi bindings for wasm3"
@@ -15,6 +15,7 @@ include = ["wasm3/source/**/*", "src/**/*", "Cargo.toml", "build.rs"]
 [features]
 wasi = []
 use-32bit-slots = []
+floats = []
 
 [dependencies]
 cty = "0.2"

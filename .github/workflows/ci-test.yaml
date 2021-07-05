@@ -1,0 +1,77 @@
+# NOTE: This name appears in GitHub's Checks API and in workflow's status badge.
+name: ci-test
+
+# Trigger the workflow when:
+on:
+  # A push occurs to one of the matched branches.
+  push:
+    branches:
+      - master
+  # Or when a pull request event occurs for a pull request against one of the
+  # matched branches.
+  pull_request:
+    branches:
+      - master
+
+jobs:
+
+  test-rust:
+    # NOTE: This name appears in GitHub's Checks API.
+    name: test-rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt # rustfmt is required for macros tests.
+          override: true
+
+      - name: Unit tests with coverage
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.18.0'
+          args: '--avoid-cfg-tarpaulin -- --test-threads 1'
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1.5.2
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2.2.4
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
+
+  test-rust-sgx:
+    # NOTE: This name appears in GitHub's Checks API.
+    name: test-rust-sgx
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install gcc-multilib
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt # rustfmt is required for macros tests.
+          target: x86_64-fortanix-unknown-sgx
+          override: true
+
+      - name: Build for SGX
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --target x86_64-fortanix-unknown-sgx

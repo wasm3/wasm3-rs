@@ -1,0 +1,25 @@
+# NOTE: This name appears in GitHub's Checks API and in workflow's status badge.
+name: ci-audit
+
+# Trigger the workflow when:
+on:
+  # A push modifies one of the matches files.
+  push:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+
+jobs:
+
+  audit:
+    # NOTE: This name appears in GitHub's Checks API.
+    name: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,6 @@
-# wasm3-rs 
+# wasm3-rs
 
-![Build](https://github.com/Veykril/wasm3-rs/workflows/Rust/badge.svg?branch=master) ![Tokei](https://tokei.rs/b1/github/veykril/wasm3-rs)
+![Build](https://github.com/wasm3/wasm3-rs/workflows/Rust/badge.svg?branch=master) ![Tokei](https://tokei.rs/b1/github/wasm3/wasm3-rs)
 [![Crates.io](https://img.shields.io/crates/v/wasm3.svg)](https://crates.io/crates/wasm3)
 [![Docs.rs](https://docs.rs/wasm3/badge.svg)](https://docs.rs/wasm3)
 
@@ -38,6 +38,13 @@ fn main() {
 
 This crate currently does not make use of the cmake project of wasm3, meaning cmake is not required to built this for the time being.
 It does however require [Clang 9](https://releases.llvm.org/download.html#9.0.0) to be installed as well as [Bindgen](https://github.com/rust-lang/rust-bindgen), should the `build-bindgen` feature not be set.
+
+The wasm3 c source is included via a submodule, so before building the submodule has to be initialized, this can be done via:
+```sh
+git submodule update --init
+```
+
+Then to build the project run:
 
 ```sh
 cargo install bindgen

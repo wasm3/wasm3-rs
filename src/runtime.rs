@@ -20,6 +20,8 @@ pub struct Runtime {
     environment: Environment,
     // holds all linked closures so that they properly get disposed of when runtime drops
     closure_store: UnsafeCell<Vec<PinnedAnyClosure>>,
+    // holds all backing data of loaded modules as they have to be kept alive for the module's lifetime
+    module_data: UnsafeCell<Vec<Box<[u8]>>>,
 }
 
 impl Runtime {
@@ -41,11 +43,15 @@ impl Runtime {
             raw,
             environment: environment.clone(),
             closure_store: UnsafeCell::new(Vec::new()),
+            module_data: UnsafeCell::new(Vec::new()),
         })
     }
 
     /// Parses and loads a module from bytes.
-    pub fn parse_and_load_module<'rt>(&'rt self, bytes: &[u8]) -> Result<Module<'rt>> {
+    pub fn parse_and_load_module<'rt, TData: Into<Box<[u8]>>>(
+        &'rt self,
+        bytes: TData,
+    ) -> Result<Module<'rt>> {
         Module::parse(&self.environment, bytes).and_then(|module| self.load_module(module))
     }
 
@@ -58,10 +64,13 @@ impl Runtime {
         if &self.environment != module.environment() {
             Err(Error::ModuleLoadEnvMismatch)
         } else {
-            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw.as_ptr(), module.as_ptr()) })?;
-            let raw = module.as_ptr();
-            mem::forget(module);
-            Ok(Module::from_raw(self, raw))
+            let raw_mod = module.as_ptr();
+            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw.as_ptr(), raw_mod) })?;
+            // SAFETY: Runtime isn't Send, therefor this access is single-threaded and kept alive only for the Vec::push call
+            // as such this can not alias.
+            unsafe { (*self.module_data.get()).push(module.take_data()) };
+
+            Ok(Module::from_raw(self, raw_mod))
         }
     }
 
@@ -76,7 +85,7 @@ impl Runtime {
     {
         self.modules()
             .find_map(|module| match module.find_function::<ARGS, RET>(name) {
-                res @ Ok(_) | res @ Err(Error::InvalidFunctionSignature) => Some(res),
+                res @ (Ok(_) | Err(Error::InvalidFunctionSignature)) => Some(res),
                 _ => None,
             })
             .unwrap_or(Err(Error::FunctionNotFound))

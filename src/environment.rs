@@ -1,4 +1,6 @@
+use alloc::boxed::Box;
 use alloc::rc::Rc;
+
 use core::ptr::NonNull;
 
 use crate::error::{Error, Result};
@@ -43,7 +45,7 @@ impl Environment {
 
     /// Parses a wasm module from raw bytes.
     #[inline]
-    pub fn parse_module(&self, bytes: &[u8]) -> Result<ParsedModule> {
+    pub fn parse_module<TData: Into<Box<[u8]>>>(&self, bytes: TData) -> Result<ParsedModule> {
         ParsedModule::parse(self, bytes)
     }
 

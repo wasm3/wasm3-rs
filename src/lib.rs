@@ -1,7 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
-#![warn(clippy::all)]
-#![allow(clippy::match_bool)]
 //! A rust wrapper for [WASM3](https://github.com/wasm3/wasm3).
 
 extern crate alloc;

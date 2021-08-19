@@ -1,4 +1,6 @@
 use alloc::boxed::Box;
+
+use core::mem;
 use core::ptr::{self, NonNull};
 use core::slice;
 
@@ -11,24 +13,22 @@ use crate::wasm3_priv;
 
 /// A parsed module which can be loaded into a [`Runtime`].
 pub struct ParsedModule {
+    data: Box<[u8]>,
     raw: ffi::IM3Module,
     env: Environment,
 }
 
 impl ParsedModule {
     /// Parses a wasm module from raw bytes.
-    pub fn parse(env: &Environment, bytes: &[u8]) -> Result<Self> {
-        assert!(bytes.len() <= !0u32 as usize);
+    pub fn parse<TData: Into<Box<[u8]>>>(env: &Environment, data: TData) -> Result<Self> {
+        let data = data.into();
+        assert!(data.len() <= !0u32 as usize);
         let mut module = ptr::null_mut();
         let res = unsafe {
-            ffi::m3_ParseModule(
-                env.as_ptr(),
-                &mut module,
-                bytes.as_ptr(),
-                bytes.len() as u32,
-            )
+            ffi::m3_ParseModule(env.as_ptr(), &mut module, data.as_ptr(), data.len() as u32)
         };
         Error::from_ffi_res(res).map(|_| ParsedModule {
+            data,
             raw: module,
             env: env.clone(),
         })
@@ -36,6 +36,12 @@ impl ParsedModule {
 
     pub(crate) fn as_ptr(&self) -> ffi::IM3Module {
         self.raw
+    }
+
+    pub(crate) fn take_data(self) -> Box<[u8]> {
+        let res = unsafe { ptr::read(&self.data) };
+        mem::forget(self);
+        res
     }
 
     /// The environment this module was parsed in.
@@ -60,7 +66,10 @@ pub struct Module<'rt> {
 impl<'rt> Module<'rt> {
     /// Parses a wasm module from raw bytes.
     #[inline]
-    pub fn parse(environment: &Environment, bytes: &[u8]) -> Result<ParsedModule> {
+    pub fn parse<TData: Into<Box<[u8]>>>(
+        environment: &Environment,
+        bytes: TData,
+    ) -> Result<ParsedModule> {
         ParsedModule::parse(environment, bytes)
     }
 

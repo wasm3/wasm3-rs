@@ -25,7 +25,7 @@ cc = "1"
 shlex = "0.1.1"
 
 [build-dependencies.bindgen]
-version = "0.54"
+version = "0.59"
 optional = true
 
 [package.metadata.docs.rs]

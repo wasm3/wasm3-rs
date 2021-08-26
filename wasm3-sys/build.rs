@@ -94,13 +94,13 @@ fn gen_bindings() {
         .layout_tests(false)
         .default_enum_style(bindgen::EnumVariation::ModuleConsts)
         .generate_comments(false)
-        .whitelist_function(WHITELIST_REGEX_FUNCTION)
-        .whitelist_type(WHITELIST_REGEX_TYPE)
-        .whitelist_var(WHITELIST_REGEX_VAR)
+        .allowlist_function(WHITELIST_REGEX_FUNCTION)
+        .allowlist_type(WHITELIST_REGEX_TYPE)
+        .allowlist_var(WHITELIST_REGEX_VAR)
         .derive_debug(false);
     bindgen = PRIMITIVES
         .iter()
-        .fold(bindgen, |bindgen, ty| bindgen.blacklist_type(ty));
+        .fold(bindgen, |bindgen, ty| bindgen.blocklist_type(ty));
     bindgen
         .clang_args(
             [
@@ -113,7 +113,7 @@ fn gen_bindings() {
                     }
                 ),
                 "-Dd_m3LogOutput=0",
-                "-Iwasm3",
+                "-Iwasm3/source",
             ]
             .iter(),
         )

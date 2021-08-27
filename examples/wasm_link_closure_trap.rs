@@ -1,7 +1,7 @@
+use wasm3::error::Error;
+use wasm3::error::Trap;
 use wasm3::Environment;
 use wasm3::Module;
-
-const MILLIS: u64 = 500_000;
 
 fn main() {
     let env = Environment::new().expect("Unable to create environment");
@@ -16,11 +16,19 @@ fn main() {
 
     let mut module = rt.load_module(module).expect("Unable to load module");
     module
-        .link_closure("time", "millis", |_, ()| Ok(MILLIS))
+        .link_closure("time", "millis", |_, ()| Err::<u64, _>(Trap::Abort))
         .expect("Unable to link closure");
     let func = module
         .find_function::<(), u64>("seconds")
         .expect("Unable to find function");
-    println!("{}ms in seconds is {:?}s.", MILLIS, func.call().unwrap());
-    assert_eq!(func.call(), Ok(MILLIS / 1000));
+
+    let err = func.call().unwrap_err();
+    match err {
+        Error::Wasm3(e) if e.is_trap(Trap::Abort) => {
+            println!("got expected error: {}", e);
+        }
+        _ => {
+            panic!("unexpected error: {}", err)
+        }
+    }
 }

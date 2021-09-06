@@ -1,6 +1,6 @@
 [package]
 name = "wasm3"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
 edition = "2018"
 description = "Rust bindings for wasm3"
@@ -26,16 +26,16 @@ lto = true
 
 [dependencies]
 cty = "0.2"
-
-[dependencies.ffi]
-path = "wasm3-sys"
-package = "wasm3-sys"
+ffi = { version = "0.1.2", package = "wasm3-sys" }
 
 [dev-dependencies]
 trybuild = "1.0"
 
 [package.metadata.docs.rs]
 all-features = true
+
+[patch.'crates-io']
+wasm3-sys = { path = "wasm3-sys" }
 
 [workspace]
 members = ["wasm3-sys"]

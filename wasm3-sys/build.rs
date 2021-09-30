@@ -76,6 +76,7 @@ fn gen_bindings() {
                     }
                 ),
                 "-Dd_m3LogOutput=0",
+                "-Dd_m3VerboseErrorMessages=0",
                 "-Iwasm3/source",
             ]
             .iter(),
@@ -137,5 +138,6 @@ fn main() {
             Some("0")
         },
     );
+    cfg.define("d_m3VerboseErrorMessages", Some("0"));
     cfg.compile("wasm3");
 }

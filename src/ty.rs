@@ -1,72 +1,24 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 // this module looks like a mess, lots of doc(hidden) attributes since rust traits cant have private functions
 mod private {
     #[doc(hidden)]
     pub struct Seal;
 }
 
-#[cfg(feature = "use-32bit-slots")]
-#[inline(always)]
-unsafe fn read_u32_from_stack(stack: *mut ffi::m3slot_t) -> u32 {
-    *stack
-}
-
-#[cfg(not(feature = "use-32bit-slots"))]
-#[inline(always)]
-unsafe fn read_u32_from_stack(stack: *mut ffi::m3slot_t) -> u32 {
-    (*stack & 0xFFFF_FFFF) as u32
-}
-
-#[cfg(feature = "use-32bit-slots")]
-#[inline(always)]
-unsafe fn read_u64_from_stack(stack: *mut ffi::m3slot_t) -> u64 {
-    *stack.cast::<u64>()
-}
-
-#[cfg(not(feature = "use-32bit-slots"))]
-#[inline(always)]
-unsafe fn read_u64_from_stack(stack: *mut ffi::m3slot_t) -> u64 {
-    *stack
-}
-
-#[cfg(feature = "use-32bit-slots")]
-#[inline(always)]
-unsafe fn write_u32_to_stack(stack: *mut ffi::m3slot_t, val: u32) {
-    *stack = val;
-}
-
-#[cfg(not(feature = "use-32bit-slots"))]
-#[inline(always)]
-unsafe fn write_u32_to_stack(stack: *mut ffi::m3slot_t, val: u32) {
-    *stack.cast::<ffi::m3slot_t>() = val as ffi::m3slot_t;
-}
-
-#[cfg(feature = "use-32bit-slots")]
-#[inline(always)]
-unsafe fn write_u64_to_stack(stack: *mut ffi::m3slot_t, val: u64) {
-    *stack.cast::<u64>() = val;
-}
-
-#[cfg(not(feature = "use-32bit-slots"))]
-#[inline(always)]
-unsafe fn write_u64_to_stack(stack: *mut ffi::m3slot_t, val: u64) {
-    *stack = val;
-}
-
-#[cfg(feature = "use-32bit-slots")]
-const SIZE_IN_SLOT_COUNT: usize = 2;
-#[cfg(not(feature = "use-32bit-slots"))]
-const SIZE_IN_SLOT_COUNT: usize = 1;
-
 /// Trait implemented by types that can be passed to and from wasm.
 pub trait WasmType: Sized {
     #[doc(hidden)]
-    const TYPE_INDEX: u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type;
     #[doc(hidden)]
     const SIZE_IN_SLOT_COUNT: usize;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self;
+    const SIGNATURE: u8;
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t);
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self;
+    #[doc(hidden)]
+    unsafe fn push_on_stack(self, stack: *mut u64);
     #[doc(hidden)]
     fn sealed_() -> private::Seal;
 }
@@ -77,29 +29,35 @@ pub trait WasmArg: WasmType {}
 /// Helper tait implemented by tuples to emulate "variadic generics".
 pub trait WasmArgs {
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]);
+    unsafe fn push_on_stack(self, stack: *mut u64);
     #[doc(hidden)]
     // required for closure linking
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self;
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self;
     #[doc(hidden)]
-    fn validate_types(types: &[u8]) -> bool;
+    fn validate_types(types: &[ffi::M3ValueType::Type]) -> bool;
     #[doc(hidden)]
     fn sealed_() -> private::Seal;
+    #[doc(hidden)]
+    fn append_signature(buffer: &mut Vec<cty::c_char>);
+    #[doc(hidden)]
+    fn ptrs_vec(&self) -> Vec<*const cty::c_void>;
 }
 
 impl WasmArg for i32 {}
 impl WasmType for i32 {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type = ffi::M3ValueType::c_m3Type_i32;
     #[doc(hidden)]
-    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
+    const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
-        read_u32_from_stack(stack) as i32
+    const SIGNATURE: u8 = b'i';
+    #[doc(hidden)]
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self {
+        *(stack as *const i32)
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
-        write_u32_to_stack(stack, self as u32);
+    unsafe fn push_on_stack(self, stack: *mut u64) {
+        *(stack as *mut i32) = self;
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -110,16 +68,18 @@ impl WasmType for i32 {
 impl WasmArg for u32 {}
 impl WasmType for u32 {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i32 as u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type = ffi::M3ValueType::c_m3Type_i32;
     #[doc(hidden)]
-    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
+    const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
-        read_u32_from_stack(stack)
+    const SIGNATURE: u8 = b'i';
+    #[doc(hidden)]
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self {
+        *(stack as *const u32)
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
-        write_u32_to_stack(stack, self);
+    unsafe fn push_on_stack(self, stack: *mut u64) {
+        *(stack as *mut u32) = self;
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -130,17 +90,18 @@ impl WasmType for u32 {
 impl WasmArg for i64 {}
 impl WasmType for i64 {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type = ffi::M3ValueType::c_m3Type_i64;
     #[doc(hidden)]
-    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
-
+    const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
-        read_u64_from_stack(stack) as i64
+    const SIGNATURE: u8 = b'I';
+    #[doc(hidden)]
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self {
+        *(stack as *const i64)
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
-        write_u64_to_stack(stack, self as u64);
+    unsafe fn push_on_stack(self, stack: *mut u64) {
+        *(stack as *mut i64) = self;
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -151,16 +112,18 @@ impl WasmType for i64 {
 impl WasmArg for u64 {}
 impl WasmType for u64 {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_i64 as u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type = ffi::M3ValueType::c_m3Type_i64;
     #[doc(hidden)]
-    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
+    const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
-        read_u64_from_stack(stack)
+    const SIGNATURE: u8 = b'I';
+    #[doc(hidden)]
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self {
+        *stack
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
-        write_u64_to_stack(stack, self);
+    unsafe fn push_on_stack(self, stack: *mut u64) {
+        *stack = self;
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -171,16 +134,18 @@ impl WasmType for u64 {
 impl WasmArg for f32 {}
 impl WasmType for f32 {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_f32 as u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type = ffi::M3ValueType::c_m3Type_f32;
     #[doc(hidden)]
-    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
+    const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
-        f32::from_ne_bytes(read_u32_from_stack(stack).to_ne_bytes())
+    const SIGNATURE: u8 = b'f';
+    #[doc(hidden)]
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self {
+        f32::from_ne_bytes((*(stack as *const u32)).to_ne_bytes())
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
-        write_u32_to_stack(stack, u32::from_ne_bytes(self.to_ne_bytes()));
+    unsafe fn push_on_stack(self, stack: *mut u64) {
+        *(stack as *mut u32) = u32::from_ne_bytes(self.to_ne_bytes());
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -191,16 +156,18 @@ impl WasmType for f32 {
 impl WasmArg for f64 {}
 impl WasmType for f64 {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_f64 as u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type = ffi::M3ValueType::c_m3Type_f64;
     #[doc(hidden)]
-    const SIZE_IN_SLOT_COUNT: usize = SIZE_IN_SLOT_COUNT;
+    const SIZE_IN_SLOT_COUNT: usize = 1;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut ffi::m3slot_t) -> Self {
-        f64::from_ne_bytes(read_u64_from_stack(stack).to_ne_bytes())
+    const SIGNATURE: u8 = b'F';
+    #[doc(hidden)]
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self {
+        f64::from_ne_bytes((*stack).to_ne_bytes())
     }
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut ffi::m3slot_t) {
-        write_u64_to_stack(stack, u64::from_ne_bytes(self.to_ne_bytes()));
+    unsafe fn push_on_stack(self, stack: *mut u64) {
+        *stack = u64::from_ne_bytes(self.to_ne_bytes());
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -210,13 +177,15 @@ impl WasmType for f64 {
 
 impl WasmType for () {
     #[doc(hidden)]
-    const TYPE_INDEX: u8 = ffi::_bindgen_ty_1::c_m3Type_none as u8;
+    const TYPE_INDEX: ffi::M3ValueType::Type = ffi::M3ValueType::c_m3Type_none;
     #[doc(hidden)]
     const SIZE_IN_SLOT_COUNT: usize = 0;
     #[doc(hidden)]
-    unsafe fn pop_from_stack(_: *mut ffi::m3slot_t) -> Self {}
+    const SIGNATURE: u8 = b'v';
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, _: *mut ffi::m3slot_t) {}
+    unsafe fn pop_from_stack(_: *mut u64) -> Self {}
+    #[doc(hidden)]
+    unsafe fn push_on_stack(self, _: *mut u64) {}
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
@@ -225,16 +194,22 @@ impl WasmType for () {
 
 impl WasmArgs for () {
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, _: *mut [ffi::m3slot_t]) {}
+    unsafe fn push_on_stack(self, _: *mut u64) {}
     #[doc(hidden)]
-    unsafe fn pop_from_stack(_: *mut [ffi::m3slot_t]) -> Self {}
+    unsafe fn pop_from_stack(_: *mut u64) -> Self {}
     #[doc(hidden)]
-    fn validate_types(types: &[u8]) -> bool {
+    fn validate_types(types: &[ffi::M3ValueType::Type]) -> bool {
         types.is_empty()
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
+    }
+    #[doc(hidden)]
+    fn append_signature(_buffer: &mut Vec<cty::c_char>) {}
+    #[doc(hidden)]
+    fn ptrs_vec(&self) -> Vec<*const cty::c_void> {
+        Vec::new()
     }
 }
 
@@ -244,23 +219,28 @@ where
     T: WasmArg,
 {
     #[doc(hidden)]
-    unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
-        WasmType::push_on_stack(self, stack.cast());
+    unsafe fn push_on_stack(self, stack: *mut u64) {
+        WasmType::push_on_stack(self, stack);
     }
     #[doc(hidden)]
-    unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
-        WasmType::pop_from_stack(stack.cast())
+    unsafe fn pop_from_stack(stack: *mut u64) -> Self {
+        WasmType::pop_from_stack(stack)
     }
     #[doc(hidden)]
-    fn validate_types(types: &[u8]) -> bool {
-        types
-            .get(0)
-            .map(|&idx| idx == T::TYPE_INDEX)
-            .unwrap_or(false)
+    fn validate_types(types: &[ffi::M3ValueType::Type]) -> bool {
+        types.len() == 1 && types[0] == T::TYPE_INDEX
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
         private::Seal
+    }
+    #[doc(hidden)]
+    fn append_signature(buffer: &mut Vec<cty::c_char>) {
+        buffer.push(T::SIGNATURE as cty::c_char);
+    }
+    #[doc(hidden)]
+    fn ptrs_vec(&self) -> Vec<*const cty::c_void> {
+        vec![self as *const T as *const cty::c_void]
     }
 }
 
@@ -278,47 +258,47 @@ macro_rules! args_impl {
         impl<$($types,)*> WasmArgs for ($($types,)*)
         where $($types: WasmArg,)* {
             #[doc(hidden)]
-            unsafe fn push_on_stack(self, stack: *mut [ffi::m3slot_t]) {
-                // reborrowing might be UB here due to aliasing, but there is currently no other stable way to get the metadata of a raw fat pointer
-                let mut stack = &mut *stack;
+            unsafe fn push_on_stack(self, mut stack: *mut u64) {
                 #[allow(non_snake_case)]
                 let ($($types,)*) = self;
 
-                let req_size = 0 $(
-                    + $types::SIZE_IN_SLOT_COUNT
-                )*;
-                assert!(req_size <= stack.len(), "wasm stack was too small");
-
                 $(
-                    $types.push_on_stack(stack.as_mut_ptr());
-                    stack = &mut stack[$types::SIZE_IN_SLOT_COUNT..];
+                    $types.push_on_stack(stack);
+                    stack = stack.add($types::SIZE_IN_SLOT_COUNT);
                 )*
             }
             #[doc(hidden)]
-            unsafe fn pop_from_stack(stack: *mut [ffi::m3slot_t]) -> Self {
-                // reborrowing might be UB here due to aliasing, but there is currently no other stable way to get the metadata of a raw fat pointer
-                let mut stack = &mut *stack;
-                let req_size = 0 $(
-                    + $types::SIZE_IN_SLOT_COUNT
-                )*;
-                assert!(req_size <= stack.len(), "wasm stack was too small");
+            unsafe fn pop_from_stack(mut stack: *mut u64) -> Self {
                 ($(
                     {
-                        let val = $types::pop_from_stack(stack.as_mut_ptr());
-                        stack = &mut stack[$types::SIZE_IN_SLOT_COUNT..];
+                        let val = $types::pop_from_stack(stack);
+                        stack = stack.add($types::SIZE_IN_SLOT_COUNT);
                         val
                     },
                 )*)
             }
             #[doc(hidden)]
-            fn validate_types(types: &[u8]) -> bool {
+            fn validate_types(types: &[ffi::M3ValueType::Type]) -> bool {
                 let mut ty_iter = types.iter();
                 $(
-                    ty_iter.next().map(|&ty| ty == $types::TYPE_INDEX).unwrap_or(false)
-                )&&*
+                    ty_iter.next().map(|&ty| ty == $types::TYPE_INDEX).unwrap_or(false) &&
+                )*
+                ty_iter.next().is_none()
             }
             #[doc(hidden)]
             fn sealed_() -> private::Seal { private::Seal }
+            #[doc(hidden)]
+            fn append_signature(buffer: &mut Vec<cty::c_char>) {
+                $(
+                    buffer.push($types::SIGNATURE as cty::c_char);
+                )*
+            }
+            #[doc(hidden)]
+            fn ptrs_vec(&self) -> Vec<*const cty::c_void> {
+                #[allow(non_snake_case)]
+                let ($($types,)*) = self;
+                vec![$($types as *const $types as *const cty::c_void,)*]
+            }
         }
     };
 }
@@ -330,52 +310,52 @@ mod tests {
     #[test]
     fn test_validate_types_single() {
         assert!(f64::validate_types(&[
-            ffi::_bindgen_ty_1::c_m3Type_f64 as u8
+            ffi::M3ValueType::c_m3Type_f64,
         ]));
     }
 
     #[test]
     fn test_validate_types_single_fail() {
         assert!(!f32::validate_types(&[
-            ffi::_bindgen_ty_1::c_m3Type_f64 as u8
+            ffi::M3ValueType::c_m3Type_f64,
         ]));
     }
 
     #[test]
     fn test_validate_types_double() {
         assert!(<(f64, u32)>::validate_types(&[
-            ffi::_bindgen_ty_1::c_m3Type_f64 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_i32 as u8
+            ffi::M3ValueType::c_m3Type_f64,
+            ffi::M3ValueType::c_m3Type_i32,
         ]));
     }
 
     #[test]
     fn test_validate_types_double_fail() {
         assert!(!<(f32, u64)>::validate_types(&[
-            ffi::_bindgen_ty_1::c_m3Type_i64 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_f32 as u8
+            ffi::M3ValueType::c_m3Type_i64,
+            ffi::M3ValueType::c_m3Type_f32,
         ]));
     }
 
     #[test]
     fn test_validate_types_quintuple() {
         assert!(<(f64, u32, i32, i64, f32)>::validate_types(&[
-            ffi::_bindgen_ty_1::c_m3Type_f64 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_i64 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_f32 as u8
+            ffi::M3ValueType::c_m3Type_f64,
+            ffi::M3ValueType::c_m3Type_i32,
+            ffi::M3ValueType::c_m3Type_i32,
+            ffi::M3ValueType::c_m3Type_i64,
+            ffi::M3ValueType::c_m3Type_f32,
         ]));
     }
 
     #[test]
     fn test_validate_types_quintuple_fail() {
         assert!(!<(f64, u32, i32, i64, f32)>::validate_types(&[
-            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_i64 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_i32 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_f32 as u8,
-            ffi::_bindgen_ty_1::c_m3Type_f64 as u8
+            ffi::M3ValueType::c_m3Type_i32,
+            ffi::M3ValueType::c_m3Type_i64,
+            ffi::M3ValueType::c_m3Type_i32,
+            ffi::M3ValueType::c_m3Type_f32,
+            ffi::M3ValueType::c_m3Type_f64,
         ]));
     }
 }

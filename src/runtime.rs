@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
-use core::mem;
 use core::pin::Pin;
 use core::ptr::{self, NonNull};
 
@@ -9,7 +8,7 @@ use crate::environment::Environment;
 use crate::error::{Error, Result};
 use crate::function::Function;
 use crate::module::{Module, ParsedModule};
-use crate::utils::eq_cstr_str;
+use crate::utils::{str_to_cstr_owned};
 
 type PinnedAnyClosure = Pin<Box<dyn core::any::Any + 'static>>;
 
@@ -48,10 +47,7 @@ impl Runtime {
     }
 
     /// Parses and loads a module from bytes.
-    pub fn parse_and_load_module<'rt, TData: Into<Box<[u8]>>>(
-        &'rt self,
-        bytes: TData,
-    ) -> Result<Module<'rt>> {
+    pub fn parse_and_load_module<TData: Into<Box<[u8]>>>(&self, bytes: TData) -> Result<Module> {
         Module::parse(&self.environment, bytes).and_then(|module| self.load_module(module))
     }
 
@@ -60,7 +56,7 @@ impl Runtime {
     /// # Errors
     ///
     /// This function will error if the module's environment differs from the one this runtime uses.
-    pub fn load_module<'rt>(&'rt self, module: ParsedModule) -> Result<Module<'rt>> {
+    pub fn load_module(&self, module: ParsedModule) -> Result<Module> {
         if &self.environment != module.environment() {
             Err(Error::ModuleLoadEnvMismatch)
         } else {
@@ -78,17 +74,23 @@ impl Runtime {
     /// See [`Module::find_function`] for possible error cases.
     ///
     /// [`Module::find_function`]: ../module/struct.Module.html#method.find_function
-    pub fn find_function<'rt, ARGS, RET>(&'rt self, name: &str) -> Result<Function<'rt, ARGS, RET>>
-    where
-        ARGS: crate::WasmArgs,
-        RET: crate::WasmType,
+    pub fn find_function<ARGS, RET>(&self, name: &str) -> Result<Function<ARGS, RET>>
+        where
+            ARGS: crate::WasmArgs,
+            RET: crate::WasmType,
     {
-        self.modules()
-            .find_map(|module| match module.find_function::<ARGS, RET>(name) {
-                res @ (Ok(_) | Err(Error::InvalidFunctionSignature)) => Some(res),
-                _ => None,
-            })
-            .unwrap_or(Err(Error::FunctionNotFound))
+        let mut func_raw: ffi::IM3Function = core::ptr::null_mut();
+        let func_name_cstr = str_to_cstr_owned(name);
+        let result = unsafe {
+            ffi::m3_FindFunction(
+                &mut func_raw as *mut ffi::IM3Function,
+                self.as_ptr(),
+                func_name_cstr.as_ptr(),
+            )
+        };
+        Error::from_ffi_res(result)?;
+        let func = NonNull::new(func_raw).ok_or(Error::FunctionNotFound)?;
+        Function::from_raw(self, func)
     }
 
     /// Returns the raw memory of this runtime.
@@ -97,13 +99,9 @@ impl Runtime {
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
     pub unsafe fn memory(&self) -> *const [u8] {
-        let len = (*self.mallocated()).length as usize;
-        let data = if len == 0 {
-            ptr::NonNull::dangling().as_ptr()
-        } else {
-            self.mallocated().offset(1).cast()
-        };
-        ptr::slice_from_raw_parts(data, len)
+        let mut len: u32 = 0;
+        let data = ffi::m3_GetMemory(self.as_ptr(), &mut len as *mut u32, 0);
+        ptr::slice_from_raw_parts(data, len as usize)
     }
 
     /// Returns the raw memory of this runtime.
@@ -112,21 +110,13 @@ impl Runtime {
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
     pub unsafe fn memory_mut(&self) -> *mut [u8] {
-        let len = (*self.mallocated()).length as usize;
-        let data = if len == 0 {
-            ptr::NonNull::dangling().as_ptr()
-        } else {
-            self.mallocated().offset(1).cast()
-        };
-        ptr::slice_from_raw_parts_mut(data, len)
+        let mut len: u32 = 0;
+        let data = ffi::m3_GetMemory(self.as_ptr(), &mut len as *mut u32, 0);
+        ptr::slice_from_raw_parts_mut(data, len as usize)
     }
 }
 
 impl Runtime {
-    pub(crate) unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
-        self.raw.as_ref().memory.mallocated
-    }
-
     pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
         unsafe { (*self.closure_store.get()).push(closure) };
     }

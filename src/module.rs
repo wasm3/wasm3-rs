@@ -1,15 +1,14 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 use core::mem;
 use core::ptr::{self, NonNull};
-use core::slice;
 
 use crate::environment::Environment;
 use crate::error::{Error, Result, Trap};
-use crate::function::{CallContext, Function, NNM3Function, RawCall};
+use crate::function::{CallContext, Function, RawCall};
 use crate::runtime::Runtime;
-use crate::utils::{cstr_to_str, eq_cstr_str};
-use crate::wasm3_priv;
+use crate::utils::{cstr_to_str, str_to_cstr_owned};
 
 /// A parsed module which can be loaded into a [`Runtime`].
 pub struct ParsedModule {
@@ -38,8 +37,8 @@ impl ParsedModule {
         self.raw
     }
 
-    pub(crate) fn take_data(self) -> Box<[u8]> {
-        let res = unsafe { ptr::read(&self.data) };
+    pub(crate) fn take_data(mut self) -> Box<[u8]> {
+        let res = mem::replace(&mut self.data, <Box<[u8]>>::default());
         mem::forget(self);
         res
     }
@@ -61,6 +60,7 @@ impl Drop for ParsedModule {
 pub struct Module<'rt> {
     raw: ffi::IM3Module,
     rt: &'rt Runtime,
+    name_cstr: Vec<cty::c_char>,
 }
 
 impl<'rt> Module<'rt> {
@@ -99,9 +99,20 @@ impl<'rt> Module<'rt> {
         Args: crate::WasmArgs,
         Ret: crate::WasmType,
     {
-        let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, Args, Ret>::validate_sig(func)
-            .and_then(|_| unsafe { self.link_func_impl(func, f) })
+        let module_name_cstr = str_to_cstr_owned(module_name);
+        let function_name_cstr = str_to_cstr_owned(function_name);
+        let signature = function_signature::<Args, Ret>();
+
+        let result = unsafe {
+            ffi::m3_LinkRawFunction(
+                self.raw,
+                module_name_cstr.as_ptr(),
+                function_name_cstr.as_ptr(),
+                signature.as_ptr(),
+                Some(f)
+            )
+        };
+        Error::from_ffi_res(result)
     }
 
     /// Links the given closure to the corresponding module and function name.
@@ -125,10 +136,52 @@ impl<'rt> Module<'rt> {
         Ret: crate::WasmType,
         F: for<'cc> FnMut(CallContext<'cc>, Args) -> core::result::Result<Ret, Trap> + 'static,
     {
-        let func = self.find_import_function(module_name, function_name)?;
-        Function::<'_, Args, Ret>::validate_sig(func)?;
+        unsafe extern "C" fn trampoline<Args, Ret, F>(
+            runtime: ffi::IM3Runtime,
+            ctx: ffi::IM3ImportContext,
+            sp: *mut u64,
+            _mem: *mut cty::c_void,
+        ) -> *const cty::c_void
+            where
+                Args: crate::WasmArgs,
+                Ret: crate::WasmType,
+                F: for<'cc> FnMut(CallContext<'cc>, Args) -> core::result::Result<Ret, Trap> + 'static,
+        {
+            let runtime = NonNull::new(runtime)
+                .expect("wasm3 calls imported functions with non-null runtime");
+            let ctx = NonNull::new(ctx)
+                .expect("wasm3 calls imported functions with non-null import context");
+            let mut closure = NonNull::new(ctx.as_ref().userdata as *mut F)
+                .expect("userdata passed to m3_LinkRawFunctionEx is non-null");
+
+            let args = Args::pop_from_stack(sp.add(Ret::SIZE_IN_SLOT_COUNT));
+            let ret = closure.as_mut()(CallContext::from_rt(runtime), args);
+            let result = match ret {
+                Ok(ret) => {
+                    ret.push_on_stack(sp);
+                    ffi::m3Err_none
+                },
+                Err(trap) => trap.as_ptr(),
+            };
+            result as *const cty::c_void
+        }
+
+        let module_name_cstr = str_to_cstr_owned(module_name);
+        let function_name_cstr = str_to_cstr_owned(function_name);
+        let signature = function_signature::<Args, Ret>();
+
         let mut closure = Box::pin(closure);
-        unsafe { self.link_closure_impl(func, closure.as_mut().get_unchecked_mut()) }?;
+        let result = unsafe {
+            ffi::m3_LinkRawFunctionEx(
+                self.raw,
+                module_name_cstr.as_ptr(),
+                function_name_cstr.as_ptr(),
+                signature.as_ptr(),
+                Some(trampoline::<Args, Ret, F>),
+                closure.as_mut().get_unchecked_mut() as *mut F as *const cty::c_void
+            )
+        };
+        Error::from_ffi_res(result)?;
         self.rt.push_closure(closure);
         Ok(())
     }
@@ -147,26 +200,22 @@ impl<'rt> Module<'rt> {
         Args: crate::WasmArgs,
         Ret: crate::WasmType,
     {
-        let func = unsafe {
-            slice::from_raw_parts_mut(
-                if (*self.raw).functions.is_null() {
-                    NonNull::dangling().as_ptr()
-                } else {
-                    (*self.raw).functions
-                },
-                (*self.raw).numFunctions as usize,
-            )
-            .iter_mut()
-            .find(|func| eq_cstr_str(func.name, function_name))
-            .map(NonNull::from)
-            .ok_or(Error::FunctionNotFound)?
-        };
-        Function::from_raw(self.rt, func).and_then(Function::compile)
+        let function = self.rt.find_function(function_name)?;
+        match function.module() {
+            Some(module) if module.raw == self.raw => Ok(function),
+            _ => Err(Error::FunctionNotFound),
+        }
     }
 
     /// The name of this module.
     pub fn name(&self) -> &str {
-        unsafe { cstr_to_str((*self.raw).name) }
+        unsafe { cstr_to_str(ffi::m3_GetModuleName(self.raw)) }
+    }
+
+    /// Set the name of this module.
+    pub fn set_name(&mut self, name: &str) {
+        self.name_cstr = str_to_cstr_owned(name);
+        unsafe { ffi::m3_SetModuleName(self.raw, self.name_cstr.as_ptr()) };
     }
 
     /// Links wasi to this module.
@@ -178,109 +227,79 @@ impl<'rt> Module<'rt> {
 
 impl<'rt> Module<'rt> {
     pub(crate) fn from_raw(rt: &'rt Runtime, raw: ffi::IM3Module) -> Self {
-        Module { raw, rt }
-    }
-
-    unsafe fn link_func_impl(&self, mut m3_func: NNM3Function, func: RawCall) -> Result<()> {
-        let page = wasm3_priv::AcquireCodePageWithCapacity(self.rt.as_ptr(), 2);
-        if page.is_null() {
-            Error::from_ffi_res(ffi::m3Err_mallocFailedCodePage)
-        } else {
-            m3_func.as_mut().compiled = wasm3_priv::GetPagePC(page);
-            m3_func.as_mut().module = self.raw;
-            wasm3_priv::EmitWord_impl(page, crate::wasm3_priv::op_CallRawFunction as _);
-            wasm3_priv::EmitWord_impl(page, func as _);
-
-            wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);
-            Ok(())
-        }
-    }
-
-    unsafe fn link_closure_impl<Args, Ret, F>(
-        &self,
-        mut m3_func: NNM3Function,
-        closure: *mut F,
-    ) -> Result<()>
-    where
-        Args: crate::WasmArgs,
-        Ret: crate::WasmType,
-        F: for<'cc> FnMut(CallContext<'cc>, Args) -> core::result::Result<Ret, Trap> + 'static,
-    {
-        unsafe extern "C" fn _impl<Args, Ret, F>(
-            runtime: ffi::IM3Runtime,
-            sp: ffi::m3stack_t,
-            _mem: *mut cty::c_void,
-            closure: *mut cty::c_void,
-        ) -> *const cty::c_void
-        where
-            Args: crate::WasmArgs,
-            Ret: crate::WasmType,
-            F: for<'cc> FnMut(CallContext<'cc>, Args) -> core::result::Result<Ret, Trap> + 'static,
-        {
-            // use https://doc.rust-lang.org/std/primitive.pointer.html#method.offset_from once stable
-            let stack_base = (*runtime).stack as ffi::m3stack_t;
-            let stack_occupied =
-                (sp as usize - stack_base as usize) / core::mem::size_of::<ffi::m3slot_t>();
-            let stack = ptr::slice_from_raw_parts_mut(
-                sp,
-                (*runtime).numStackSlots as usize - stack_occupied,
-            );
-
-            let args = Args::pop_from_stack(stack);
-            let context = CallContext::from_rt(NonNull::new_unchecked(runtime));
-            let res = (&mut *closure.cast::<F>())(context, args);
-            match res {
-                Ok(ret) => {
-                    ret.push_on_stack(stack.cast());
-                    ffi::m3Err_none as _
-                }
-                Err(err) => err.as_ptr() as _,
-            }
-        }
-
-        let page = wasm3_priv::AcquireCodePageWithCapacity(self.rt.as_ptr(), 3);
-        if page.is_null() {
-            Error::from_ffi_res(ffi::m3Err_mallocFailedCodePage)
-        } else {
-            m3_func.as_mut().compiled = wasm3_priv::GetPagePC(page);
-            m3_func.as_mut().module = self.raw;
-            wasm3_priv::EmitWord_impl(page, crate::wasm3_priv::op_CallRawFunctionEx as _);
-            wasm3_priv::EmitWord_impl(page, _impl::<Args, Ret, F> as _);
-            wasm3_priv::EmitWord_impl(page, closure.cast());
-
-            wasm3_priv::ReleaseCodePage(self.rt.as_ptr(), page);
-            Ok(())
-        }
-    }
-
-    fn find_import_function(&self, module_name: &str, function_name: &str) -> Result<NNM3Function> {
-        unsafe {
-            slice::from_raw_parts_mut(
-                if (*self.raw).functions.is_null() {
-                    NonNull::dangling().as_ptr()
-                } else {
-                    (*self.raw).functions
-                },
-                (*self.raw).numFunctions as usize,
-            )
-            .iter_mut()
-            .filter(|func| eq_cstr_str(func.import.moduleUtf8, module_name))
-            .find(|func| eq_cstr_str(func.import.fieldUtf8, function_name))
-            .map(NonNull::from)
-            .ok_or(Error::FunctionNotFound)
+        Module {
+            raw,
+            rt,
+            name_cstr: Vec::new(),
         }
     }
 }
 
-#[test]
-fn module_parse() {
-    let env = Environment::new().expect("env alloc failure");
-    let fib32 = [
-        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60, 0x01, 0x7f, 0x01,
-        0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x66, 0x69, 0x62, 0x00, 0x00, 0x0a,
-        0x1f, 0x01, 0x1d, 0x00, 0x20, 0x00, 0x41, 0x02, 0x49, 0x04, 0x40, 0x20, 0x00, 0x0f, 0x0b,
-        0x20, 0x00, 0x41, 0x02, 0x6b, 0x10, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6b, 0x10, 0x00, 0x6a,
-        0x0f, 0x0b,
-    ];
-    let _ = Module::parse(&env, &fib32[..]).unwrap();
+fn function_signature<Args, Ret>() -> Vec<cty::c_char>
+    where
+        Args: crate::WasmArgs,
+        Ret: crate::WasmType,
+{
+    let mut signature = <Vec<cty::c_char>>::new();
+    signature.push(Ret::SIGNATURE as cty::c_char);
+    signature.push(b'(' as cty::c_char);
+    Args::append_signature(&mut signature);
+    signature.push(b')' as cty::c_char);
+    signature.push(b'\0' as cty::c_char);
+    signature
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::make_func_wrapper;
+    use crate::error::TrappedResult;
+
+    make_func_wrapper!(mul_u32_and_f32_wrap: mul_u32_and_f32(a: u32, b: f32) -> f64);
+    fn mul_u32_and_f32(a: u32, b: f32) -> f64 {
+        (a as f64) * (b as f64)
+    }
+
+    make_func_wrapper!(hello_wrap: hello() -> TrappedResult<()>);
+    fn hello() -> TrappedResult<()> {
+        Ok(())
+    }
+
+    const TEST_BIN: &[u8] = include_bytes!("../tests/wasm_test_bins/wasm_test_bins.wasm");
+    const STACK_SIZE: u32 = 1_000;
+
+    #[test]
+    fn module_parse() {
+        let env = Environment::new().expect("env alloc failure");
+        let fib32 = [
+            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60, 0x01, 0x7f, 0x01,
+            0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x66, 0x69, 0x62, 0x00, 0x00, 0x0a,
+            0x1f, 0x01, 0x1d, 0x00, 0x20, 0x00, 0x41, 0x02, 0x49, 0x04, 0x40, 0x20, 0x00, 0x0f, 0x0b,
+            0x20, 0x00, 0x41, 0x02, 0x6b, 0x10, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6b, 0x10, 0x00, 0x6a,
+            0x0f, 0x0b,
+        ];
+        let _ = Module::parse(&env, &fib32[..]).unwrap();
+    }
+
+    #[test]
+    fn test_link_functions() {
+        let env = Environment::new().expect("env alloc failure");
+        let runtime = Runtime::new(&env, STACK_SIZE).expect("runtime init failure");
+        let mut module = runtime.parse_and_load_module(TEST_BIN).unwrap();
+        module.link_function::<(u32, f32), f64>("env", "mul_u32_and_f32", mul_u32_and_f32_wrap)
+            .unwrap();
+        module.link_function::<(), ()>("env", "hello", hello_wrap).unwrap();
+    }
+
+    #[test]
+    fn test_link_closures() {
+        let env = Environment::new().expect("env alloc failure");
+        let runtime = Runtime::new(&env, STACK_SIZE).expect("runtime init failure");
+        let mut module = runtime.parse_and_load_module(TEST_BIN).unwrap();
+        module.link_closure("env", "mul_u32_and_f32", |_ctx, args: (u32, f32)| -> TrappedResult<f64> {
+            Ok(mul_u32_and_f32(args.0, args.1))
+        }).unwrap();
+        module.link_closure("env", "hello", |_ctx, _args: ()| -> TrappedResult<()> { hello() })
+            .unwrap();
+    }
 }

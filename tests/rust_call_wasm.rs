@@ -83,18 +83,3 @@ fn test_no_args_no_ret_func() {
         .expect("Unable to find function");
     assert_eq!(func.call(), Ok(()));
 }
-
-#[test]
-fn test_resize_memory() {
-    let rt = runtime();
-    let module = module(&rt);
-    rt.resize_memory(1).expect("could not resize memory");
-    let func = module
-        .find_function::<(), u32>("memory_size")
-        .expect("Unable to find function");
-    assert_eq!(func.call(), Ok(1));
-    rt.resize_memory(5).expect("could not resize memory");
-    assert_eq!(func.call(), Ok(5));
-    rt.resize_memory(10).expect("could not resize memory");
-    assert_eq!(func.call(), Ok(10));
-}

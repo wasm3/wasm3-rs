@@ -1,15 +1,14 @@
+use alloc::vec::Vec;
 use core::cmp::{Eq, PartialEq};
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
-use core::slice;
 use core::str;
 
 use crate::error::{Error, Result};
 use crate::runtime::Runtime;
 use crate::utils::cstr_to_str;
-use crate::wasm3_priv;
-use crate::{WasmArgs, WasmType};
+use crate::{WasmArgs, WasmType, Module};
 
 /// Calling Context for a host function.
 pub struct CallContext<'cc> {
@@ -25,24 +24,15 @@ impl<'cc> CallContext<'cc> {
         }
     }
 
-    unsafe fn mallocated(&self) -> *mut ffi::M3MemoryHeader {
-        self.runtime.as_ref().memory.mallocated
-    }
-
     /// Returns the raw memory of the runtime associated with this context.
     ///
     /// # Safety
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
     pub unsafe fn memory(&self) -> *const [u8] {
-        let mallocated = self.mallocated();
-        let len = (*mallocated).length as usize;
-        let data = if len == 0 {
-            ptr::NonNull::dangling().as_ptr()
-        } else {
-            mallocated.offset(1).cast()
-        };
-        ptr::slice_from_raw_parts(data, len)
+        let mut memory_size = 0u32;
+        let data = ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size as *mut u32, 0);
+        ptr::slice_from_raw_parts(data, memory_size as usize)
     }
 
     /// Returns the raw memory of the runtime associated with this context.
@@ -51,14 +41,9 @@ impl<'cc> CallContext<'cc> {
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
     pub unsafe fn memory_mut(&self) -> *mut [u8] {
-        let mallocated = self.mallocated();
-        let len = (*mallocated).length as usize;
-        let data = if len == 0 {
-            ptr::NonNull::dangling().as_ptr()
-        } else {
-            mallocated.offset(1).cast()
-        };
-        ptr::slice_from_raw_parts_mut(data, len)
+        let mut memory_size = 0u32;
+        let data = ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size as *mut u32, 0);
+        ptr::slice_from_raw_parts_mut(data, memory_size as usize)
     }
 }
 
@@ -66,7 +51,8 @@ impl<'cc> CallContext<'cc> {
 /// Type of a raw host function for wasm3.
 pub type RawCall = unsafe extern "C" fn(
     runtime: ffi::IM3Runtime,
-    _sp: ffi::m3stack_t,
+    ctx: ffi::IM3ImportContext,
+    _sp: *mut u64,
     _mem: *mut cty::c_void,
 ) -> *const cty::c_void;
 
@@ -102,7 +88,17 @@ where
 {
     /// The name of this function.
     pub fn name(&self) -> &str {
-        unsafe { cstr_to_str(self.raw.as_ref().name) }
+        unsafe { cstr_to_str(ffi::m3_GetFunctionName(self.raw.as_ptr())) }
+    }
+
+    /// The module containing this function.
+    pub fn module(&self) -> Option<Module<'rt>> {
+        let module = unsafe { ffi::m3_GetFunctionModule(self.raw.as_ptr()) };
+        if !module.is_null() {
+            Some(Module::from_raw(self.rt, module))
+        } else {
+            None
+        }
     }
 }
 
@@ -111,77 +107,43 @@ where
     Args: WasmArgs,
     Ret: WasmType,
 {
-    pub(crate) fn validate_sig(mut func: NNM3Function) -> Result<()> {
-        let &ffi::M3FuncType {
-            returnType: ret,
-            argTypes: ref args,
-            numArgs: num,
-            ..
-        } = unsafe { &*func.as_mut().funcType };
-        // argTypes is actually dynamically sized.
-        let args = unsafe { slice::from_raw_parts(args.as_ptr(), num as usize) };
-        match Ret::TYPE_INDEX == ret && Args::validate_types(args) {
-            true => Ok(()),
-            false => Err(Error::InvalidFunctionSignature),
-        }
+    fn validate_sig(func: NNM3Function) -> bool {
+        let num_args = unsafe { ffi::m3_GetArgCount(func.as_ptr()) };
+        let num_rets = unsafe { ffi::m3_GetRetCount(func.as_ptr()) };
+        let args = (0..num_args)
+            .map(|i| unsafe { ffi::m3_GetArgType(func.as_ptr(), i) })
+            .collect::<Vec<_>>();
+        let rets = (0..num_rets)
+            .map(|i| unsafe { ffi::m3_GetRetType(func.as_ptr(), i) })
+            .collect::<Vec<_>>();
+        return Args::validate_types(&args) &&
+            ((rets.len() == 0 && Ret::TYPE_INDEX == ffi::M3ValueType::c_m3Type_none) ||
+                (rets.len() == 1 && Ret::TYPE_INDEX == rets[0]));
     }
 
     #[inline]
     pub(crate) fn from_raw(rt: &'rt Runtime, raw: NNM3Function) -> Result<Self> {
-        Self::validate_sig(raw)?;
-        let this = Function {
+        if !Self::validate_sig(raw) {
+            return Err(Error::InvalidFunctionSignature);
+        }
+        Ok(Function {
             raw,
             rt,
             _pd: PhantomData,
-        };
-        // make sure the function is compiled
-        this.compile()
-    }
-
-    #[inline]
-    pub(crate) fn compile(self) -> Result<Self> {
-        unsafe {
-            if self.raw.as_ref().compiled.is_null() {
-                Error::from_ffi_res(wasm3_priv::Compile_Function(self.raw.as_ptr()))?;
-            }
-        };
-        Ok(self)
+        })
     }
 
     fn call_impl(&self, args: Args) -> Result<Ret> {
-        let stack = self.rt.stack_mut();
-        let ret = unsafe {
-            args.push_on_stack(stack);
-            Self::call_impl_(
-                self.raw.as_ref().compiled,
-                stack.cast(),
-                self.rt.mallocated(),
-                0,
-                0.0,
-            )
+        let mut argv = args.ptrs_vec();
+        let result = unsafe {
+           ffi::m3_Call(self.raw.as_ptr(), argv.len() as u32, argv.as_mut_ptr())
         };
-        Error::from_ffi_res(ret.cast()).map(|()| unsafe { Ret::pop_from_stack(stack.cast()) })
-    }
-
-    #[inline]
-    unsafe fn call_impl_(
-        _pc: ffi::pc_t,
-        _sp: ffi::m3stack_t,
-        _mem: *mut ffi::M3MemoryHeader,
-        _r0: ffi::m3reg_t,
-        _fp0: f64,
-    ) -> ffi::m3ret_t {
-        let possible_trap = ffi::m3_Yield();
-        if !possible_trap.is_null() {
-            possible_trap.cast()
-        } else {
-            (*_pc.cast::<ffi::IM3Operation>()).expect("IM3Operation was null")(
-                _pc.add(1),
-                _sp,
-                _mem,
-                _r0,
-                _fp0,
-            )
+        Error::from_ffi_res(result)?;
+        unsafe {
+            let mut ret = core::mem::MaybeUninit::<Ret>::uninit();
+            let result = ffi::m3_GetResultsV(self.raw.as_ptr(), ret.as_mut_ptr());
+            Error::from_ffi_res(result)?;
+            Ok(ret.assume_init())
         }
     }
 }

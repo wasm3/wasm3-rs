@@ -117,6 +117,8 @@ impl Error {
     pub(crate) fn from_ffi_res(ptr: ffi::M3Result) -> Result<()> {
         if ptr.is_null() {
             Ok(())
+        } else if unsafe { ptr == ffi::m3Err_functionLookupFailed } {
+            Err(Error::FunctionNotFound)
         } else {
             Err(Error::Wasm3(Wasm3Error(ptr)))
         }

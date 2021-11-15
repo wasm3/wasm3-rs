@@ -20,5 +20,3 @@ mod ty;
 pub use self::ty::{WasmArg, WasmArgs, WasmType};
 mod utils;
 pub use ffi as wasm3_sys;
-
-pub(crate) mod wasm3_priv;

@@ -1,6 +1,6 @@
 [package]
 name = "wasm3"
-version = "0.3.1"
+version = "0.5.0"
 authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
 edition = "2018"
 description = "Rust bindings for wasm3"
@@ -27,7 +27,7 @@ build-bindgen = ["ffi/build-bindgen"]
 cty = "0.2"
 
 [dependencies.ffi]
-version = "0.3.0"
+version = "0.5.0"
 path = "./wasm3-sys"
 package = "wasm3-sys"
 

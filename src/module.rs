@@ -164,36 +164,6 @@ impl<'rt> Module<'rt> {
         Function::from_raw(self.rt, func).and_then(Function::compile)
     }
 
-    /// Looks up a function by its index in this module.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error in the following situations:
-    ///
-    /// * a memory allocation failed
-    /// * the index is out of bounds
-    /// * the function has been found but the signature did not match
-    pub fn function<Args, Ret>(&self, function_index: usize) -> Result<Function<'rt, Args, Ret>>
-    where
-        Args: crate::WasmArgs,
-        Ret: crate::WasmType,
-    {
-        let func = unsafe {
-            slice::from_raw_parts_mut(
-                if (*self.raw).functions.is_null() {
-                    NonNull::dangling().as_ptr()
-                } else {
-                    (*self.raw).functions
-                },
-                (*self.raw).numFunctions as usize,
-            )
-            .get(function_index)
-            .map(NonNull::from)
-            .ok_or(Error::FunctionNotFound)?
-        };
-        Function::from_raw(self.rt, func).and_then(Function::compile)
-    }
-
     /// The name of this module.
     pub fn name(&self) -> &str {
         unsafe { cstr_to_str((*self.raw).name) }

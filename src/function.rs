@@ -100,11 +100,6 @@ where
     Args: WasmArgs,
     Ret: WasmType,
 {
-    /// The name of the import module of this function.
-    pub fn import_module_name(&self) -> &str {
-        unsafe { cstr_to_str(self.raw.as_ref().import.moduleUtf8) }
-    }
-
     /// The name of this function.
     pub fn name(&self) -> &str {
         unsafe { cstr_to_str(self.raw.as_ref().name) }

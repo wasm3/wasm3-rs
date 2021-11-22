@@ -91,46 +91,6 @@ impl Runtime {
             .unwrap_or(Err(Error::FunctionNotFound))
     }
 
-    /// Searches for a module with the given name in the runtime's loaded modules.
-    ///
-    /// Using this over searching through [`Runtime::modules`] is a bit more efficient as it
-    /// works on the underlying CStrings directly and doesn't require an upfront length calculation.
-    ///
-    /// [`Runtime::modules`]: struct.Runtime.html#method.modules
-    pub fn find_module<'rt>(&'rt self, name: &str) -> Result<Module<'rt>> {
-        unsafe {
-            let mut module = ptr::NonNull::new(self.raw.as_ref().modules);
-            while let Some(raw_mod) = module {
-                if eq_cstr_str(raw_mod.as_ref().name, name) {
-                    return Ok(Module::from_raw(self, raw_mod.as_ptr()));
-                }
-
-                module = ptr::NonNull::new(raw_mod.as_ref().next);
-            }
-            Err(Error::ModuleNotFound)
-        }
-    }
-
-    /// Returns an iterator over the runtime's loaded modules.
-    pub fn modules<'rt>(&'rt self) -> impl Iterator<Item = Module<'rt>> + 'rt {
-        // pointer could get invalidated if modules can become unloaded
-        // pushing new modules into the runtime while this iterator exists is fine as its backed by a linked list meaning it wont get invalidated.
-        let mut module = unsafe { ptr::NonNull::new(self.raw.as_ref().modules) };
-        core::iter::from_fn(move || {
-            let next = unsafe { module.and_then(|module| ptr::NonNull::new(module.as_ref().next)) };
-            mem::replace(&mut module, next).map(|raw| Module::from_raw(self, raw.as_ptr()))
-        })
-    }
-
-    /// Resizes the number of allocatable pages to num_pages.
-    ///
-    /// # Errors
-    ///
-    /// This function will error out if it failed to resize memory allocation.
-    pub fn resize_memory(&self, num_pages: u32) -> Result<()> {
-        Error::from_ffi_res(unsafe { ffi::ResizeMemory(self.raw.as_ptr(), num_pages) })
-    }
-
     /// Returns the raw memory of this runtime.
     ///
     /// # Safety
@@ -159,26 +119,6 @@ impl Runtime {
             self.mallocated().offset(1).cast()
         };
         ptr::slice_from_raw_parts_mut(data, len)
-    }
-
-    /// Returns the stack of this runtime.
-    pub fn stack(&self) -> *const [ffi::m3slot_t] {
-        unsafe {
-            ptr::slice_from_raw_parts(
-                self.raw.as_ref().stack.cast::<ffi::m3slot_t>(),
-                self.raw.as_ref().numStackSlots as usize,
-            )
-        }
-    }
-
-    /// Returns the stack of this runtime.
-    pub fn stack_mut(&self) -> *mut [ffi::m3slot_t] {
-        unsafe {
-            ptr::slice_from_raw_parts_mut(
-                self.raw.as_ref().stack.cast::<ffi::m3slot_t>(),
-                self.raw.as_ref().numStackSlots as usize,
-            )
-        }
     }
 }
 

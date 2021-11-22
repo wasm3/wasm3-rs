@@ -1,6 +1,5 @@
 use std::env;
 use std::ffi::OsStr;
-use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -13,25 +12,16 @@ const PRIMITIVES: &[&str] = &[
 ];
 
 fn gen_wrapper(out_path: &Path) -> PathBuf {
-    // TODO: we currently need the field definitions of the structs of wasm3. These aren't exposed
-    // in the wasm3.h header so we have to generate bindings for more.
     let wrapper_file = out_path.join("wrapper.h");
-
-    let mut buffer = String::new();
-    fs::read_dir(WASM3_SOURCE)
-        .unwrap_or_else(|_| panic!("failed to read {} directory", WASM3_SOURCE))
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().and_then(OsStr::to_str) == Some("h"))
-        .for_each(|path| {
-            writeln!(
-                &mut buffer,
-                "#include \"{}\"",
-                path.file_name().unwrap().to_str().unwrap()
-            )
-            .unwrap()
-        });
-    fs::write(&wrapper_file, buffer).expect("failed to create wasm3 wrapper file");
+    let header_files = [
+        "wasm3.h",
+        #[cfg(feature = "wasi")]
+        "m3_api_wasi.h",
+    ];
+    let contents = header_files
+        .map(|header_file| format!("#include \"{}\"\n", header_file))
+        .join("");
+    fs::write(&wrapper_file, contents).expect("failed to create wasm3 wrapper file");
     wrapper_file
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "wasm3-sys"
-version = "0.3.0"
+version = "0.5.0"
 authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
 edition = "2018"
 description = "Raw ffi bindings for wasm3"

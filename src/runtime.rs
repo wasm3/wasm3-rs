@@ -8,7 +8,7 @@ use crate::environment::Environment;
 use crate::error::{Error, Result};
 use crate::function::Function;
 use crate::module::{Module, ParsedModule};
-use crate::utils::{str_to_cstr_owned};
+use crate::utils::str_to_cstr_owned;
 
 type PinnedAnyClosure = Pin<Box<dyn core::any::Any + 'static>>;
 
@@ -75,9 +75,9 @@ impl Runtime {
     ///
     /// [`Module::find_function`]: ../module/struct.Module.html#method.find_function
     pub fn find_function<ARGS, RET>(&self, name: &str) -> Result<Function<ARGS, RET>>
-        where
-            ARGS: crate::WasmArgs,
-            RET: crate::WasmType,
+    where
+        ARGS: crate::WasmArgs,
+        RET: crate::WasmType,
     {
         let mut func_raw: ffi::IM3Function = core::ptr::null_mut();
         let func_name_cstr = str_to_cstr_owned(name);

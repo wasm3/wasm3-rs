@@ -50,7 +50,11 @@ impl ParsedModule {
     }
 
     pub(crate) fn take_data(self) -> Box<[u8]> {
-        let ParsedModule { data, raw, env: _env } = self;
+        let ParsedModule {
+            data,
+            raw,
+            env: _env,
+        } = self;
         mem::forget(raw);
         data
     }
@@ -114,7 +118,7 @@ impl<'rt> Module<'rt> {
                 module_name_cstr.as_ptr(),
                 function_name_cstr.as_ptr(),
                 signature.as_ptr(),
-                Some(f)
+                Some(f),
             )
         };
         Error::from_ffi_res(result)
@@ -147,10 +151,10 @@ impl<'rt> Module<'rt> {
             sp: *mut u64,
             _mem: *mut cty::c_void,
         ) -> *const cty::c_void
-            where
-                Args: crate::WasmArgs,
-                Ret: crate::WasmType,
-                F: for<'cc> FnMut(CallContext<'cc>, Args) -> core::result::Result<Ret, Trap> + 'static,
+        where
+            Args: crate::WasmArgs,
+            Ret: crate::WasmType,
+            F: for<'cc> FnMut(CallContext<'cc>, Args) -> core::result::Result<Ret, Trap> + 'static,
         {
             let runtime = NonNull::new(runtime)
                 .expect("wasm3 calls imported functions with non-null runtime");
@@ -165,7 +169,7 @@ impl<'rt> Module<'rt> {
                 Ok(ret) => {
                     ret.push_on_stack(sp);
                     ffi::m3Err_none
-                },
+                }
                 Err(trap) => trap.as_ptr(),
             };
             result as *const cty::c_void
@@ -183,7 +187,7 @@ impl<'rt> Module<'rt> {
                 function_name_cstr.as_ptr(),
                 signature.as_ptr(),
                 Some(trampoline::<Args, Ret, F>),
-                closure.as_mut().get_unchecked_mut() as *mut F as *const cty::c_void
+                closure.as_mut().get_unchecked_mut() as *mut F as *const cty::c_void,
             )
         };
         Error::from_ffi_res(result)?;
@@ -226,17 +230,14 @@ impl<'rt> Module<'rt> {
 
 impl<'rt> Module<'rt> {
     pub(crate) fn from_raw(rt: &'rt Runtime, raw: ffi::IM3Module) -> Self {
-        Module {
-            raw,
-            rt,
-        }
+        Module { raw, rt }
     }
 }
 
 fn function_signature<Args, Ret>() -> Vec<cty::c_char>
-    where
-        Args: crate::WasmArgs,
-        Ret: crate::WasmType,
+where
+    Args: crate::WasmArgs,
+    Ret: crate::WasmType,
 {
     let mut signature = <Vec<cty::c_char>>::new();
     signature.push(Ret::SIGNATURE as cty::c_char);
@@ -250,8 +251,8 @@ fn function_signature<Args, Ret>() -> Vec<cty::c_char>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::make_func_wrapper;
     use crate::error::TrappedResult;
+    use crate::make_func_wrapper;
 
     make_func_wrapper!(mul_u32_and_f32_wrap: mul_u32_and_f32(a: u32, b: f32) -> f64);
     fn mul_u32_and_f32(a: u32, b: f32) -> f64 {
@@ -270,11 +271,11 @@ mod tests {
     fn module_parse() {
         let env = Environment::new().expect("env alloc failure");
         let fib32 = [
-            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60, 0x01, 0x7f, 0x01,
-            0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x66, 0x69, 0x62, 0x00, 0x00, 0x0a,
-            0x1f, 0x01, 0x1d, 0x00, 0x20, 0x00, 0x41, 0x02, 0x49, 0x04, 0x40, 0x20, 0x00, 0x0f, 0x0b,
-            0x20, 0x00, 0x41, 0x02, 0x6b, 0x10, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6b, 0x10, 0x00, 0x6a,
-            0x0f, 0x0b,
+            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60, 0x01, 0x7f,
+            0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x66, 0x69, 0x62, 0x00,
+            0x00, 0x0a, 0x1f, 0x01, 0x1d, 0x00, 0x20, 0x00, 0x41, 0x02, 0x49, 0x04, 0x40, 0x20,
+            0x00, 0x0f, 0x0b, 0x20, 0x00, 0x41, 0x02, 0x6b, 0x10, 0x00, 0x20, 0x00, 0x41, 0x01,
+            0x6b, 0x10, 0x00, 0x6a, 0x0f, 0x0b,
         ];
         let _ = Module::parse(&env, &fib32[..]).unwrap();
     }
@@ -284,9 +285,12 @@ mod tests {
         let env = Environment::new().expect("env alloc failure");
         let runtime = Runtime::new(&env, STACK_SIZE).expect("runtime init failure");
         let mut module = runtime.parse_and_load_module(TEST_BIN).unwrap();
-        module.link_function::<(u32, f32), f64>("env", "mul_u32_and_f32", mul_u32_and_f32_wrap)
+        module
+            .link_function::<(u32, f32), f64>("env", "mul_u32_and_f32", mul_u32_and_f32_wrap)
             .unwrap();
-        module.link_function::<(), ()>("env", "hello", hello_wrap).unwrap();
+        module
+            .link_function::<(), ()>("env", "hello", hello_wrap)
+            .unwrap();
     }
 
     #[test]
@@ -294,10 +298,19 @@ mod tests {
         let env = Environment::new().expect("env alloc failure");
         let runtime = Runtime::new(&env, STACK_SIZE).expect("runtime init failure");
         let mut module = runtime.parse_and_load_module(TEST_BIN).unwrap();
-        module.link_closure("env", "mul_u32_and_f32", |_ctx, args: (u32, f32)| -> TrappedResult<f64> {
-            Ok(mul_u32_and_f32(args.0, args.1))
-        }).unwrap();
-        module.link_closure("env", "hello", |_ctx, _args: ()| -> TrappedResult<()> { hello() })
+        module
+            .link_closure(
+                "env",
+                "mul_u32_and_f32",
+                |_ctx, args: (u32, f32)| -> TrappedResult<f64> {
+                    Ok(mul_u32_and_f32(args.0, args.1))
+                },
+            )
+            .unwrap();
+        module
+            .link_closure("env", "hello", |_ctx, _args: ()| -> TrappedResult<()> {
+                hello()
+            })
             .unwrap();
     }
 }

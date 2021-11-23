@@ -98,9 +98,9 @@ impl Runtime {
     /// # Safety
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub unsafe fn memory(&self) -> *const [u8] {
+    pub fn memory(&self) -> *const [u8] {
         let mut len: u32 = 0;
-        let data = ffi::m3_GetMemory(self.as_ptr(), &mut len as *mut u32, 0);
+        let data = unsafe { ffi::m3_GetMemory(self.as_ptr(), &mut len, 0) };
         ptr::slice_from_raw_parts(data, len as usize)
     }
 
@@ -109,9 +109,9 @@ impl Runtime {
     /// # Safety
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub unsafe fn memory_mut(&self) -> *mut [u8] {
+    pub fn memory_mut(&self) -> *mut [u8] {
         let mut len: u32 = 0;
-        let data = ffi::m3_GetMemory(self.as_ptr(), &mut len as *mut u32, 0);
+        let data = unsafe { ffi::m3_GetMemory(self.as_ptr(), &mut len, 0) };
         ptr::slice_from_raw_parts_mut(data, len as usize)
     }
 }

@@ -66,7 +66,6 @@ impl ParsedModule {
 pub struct Module<'rt> {
     raw: ffi::IM3Module,
     rt: &'rt Runtime,
-    name_cstr: Vec<cty::c_char>,
 }
 
 impl<'rt> Module<'rt> {
@@ -218,12 +217,6 @@ impl<'rt> Module<'rt> {
         unsafe { cstr_to_str(ffi::m3_GetModuleName(self.raw)) }
     }
 
-    /// Set the name of this module.
-    pub fn set_name(&mut self, name: &str) {
-        self.name_cstr = str_to_cstr_owned(name);
-        unsafe { ffi::m3_SetModuleName(self.raw, self.name_cstr.as_ptr()) };
-    }
-
     /// Links wasi to this module.
     #[cfg(feature = "wasi")]
     pub fn link_wasi(&mut self) -> Result<()> {
@@ -236,7 +229,6 @@ impl<'rt> Module<'rt> {
         Module {
             raw,
             rt,
-            name_cstr: Vec::new(),
         }
     }
 }

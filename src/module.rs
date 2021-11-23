@@ -10,10 +10,19 @@ use crate::function::{CallContext, Function, RawCall};
 use crate::runtime::Runtime;
 use crate::utils::{cstr_to_str, str_to_cstr_owned};
 
+#[derive(Debug)]
+struct DropModule(NonNull<ffi::M3Module>);
+
+impl Drop for DropModule {
+    fn drop(&mut self) {
+        unsafe { ffi::m3_FreeModule(self.0.as_ptr()) };
+    }
+}
+
 /// A parsed module which can be loaded into a [`Runtime`].
 pub struct ParsedModule {
     data: Box<[u8]>,
-    raw: ffi::IM3Module,
+    raw: DropModule,
     env: Environment,
 }
 
@@ -26,32 +35,29 @@ impl ParsedModule {
         let res = unsafe {
             ffi::m3_ParseModule(env.as_ptr(), &mut module, data.as_ptr(), data.len() as u32)
         };
-        Error::from_ffi_res(res).map(|_| ParsedModule {
+        Error::from_ffi_res(res)?;
+        let module = NonNull::new(module)
+            .expect("module pointer is non-null after m3_ParseModule if result is not error");
+        Ok(ParsedModule {
             data,
-            raw: module,
+            raw: DropModule(module),
             env: env.clone(),
         })
     }
 
     pub(crate) fn as_ptr(&self) -> ffi::IM3Module {
-        self.raw
+        self.raw.0.as_ptr()
     }
 
-    pub(crate) fn take_data(mut self) -> Box<[u8]> {
-        let res = mem::replace(&mut self.data, <Box<[u8]>>::default());
-        mem::forget(self);
-        res
+    pub(crate) fn take_data(self) -> Box<[u8]> {
+        let ParsedModule { data, raw, env: _env } = self;
+        mem::forget(raw);
+        data
     }
 
     /// The environment this module was parsed in.
     pub fn environment(&self) -> &Environment {
         &self.env
-    }
-}
-
-impl Drop for ParsedModule {
-    fn drop(&mut self) {
-        unsafe { ffi::m3_FreeModule(self.raw) };
     }
 }
 

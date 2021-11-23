@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use core::cmp::{Eq, PartialEq};
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
@@ -29,9 +28,9 @@ impl<'cc> CallContext<'cc> {
     /// # Safety
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub unsafe fn memory(&self) -> *const [u8] {
+    pub fn memory(&self) -> *const [u8] {
         let mut memory_size = 0u32;
-        let data = ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size as *mut u32, 0);
+        let data = unsafe { ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size, 0) };
         ptr::slice_from_raw_parts(data, memory_size as usize)
     }
 
@@ -40,9 +39,9 @@ impl<'cc> CallContext<'cc> {
     /// # Safety
     ///
     /// The returned pointer may get invalidated when wasm function objects are called due to reallocations.
-    pub unsafe fn memory_mut(&self) -> *mut [u8] {
+    pub fn memory_mut(&self) -> *mut [u8] {
         let mut memory_size = 0u32;
-        let data = ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size as *mut u32, 0);
+        let data = unsafe { ffi::m3_GetMemory(self.runtime.as_ptr(), &mut memory_size, 0) };
         ptr::slice_from_raw_parts_mut(data, memory_size as usize)
     }
 }
@@ -109,16 +108,21 @@ where
 {
     fn validate_sig(func: NNM3Function) -> bool {
         let num_args = unsafe { ffi::m3_GetArgCount(func.as_ptr()) };
-        let num_rets = unsafe { ffi::m3_GetRetCount(func.as_ptr()) };
         let args = (0..num_args)
-            .map(|i| unsafe { ffi::m3_GetArgType(func.as_ptr(), i) })
-            .collect::<Vec<_>>();
-        let rets = (0..num_rets)
-            .map(|i| unsafe { ffi::m3_GetRetType(func.as_ptr(), i) })
-            .collect::<Vec<_>>();
-        return Args::validate_types(&args) &&
-            ((rets.len() == 0 && Ret::TYPE_INDEX == ffi::M3ValueType::c_m3Type_none) ||
-                (rets.len() == 1 && Ret::TYPE_INDEX == rets[0]));
+            .map(|i| unsafe { ffi::m3_GetArgType(func.as_ptr(), i) });
+        if !Args::validate_types(args) {
+            return false;
+        }
+
+        let num_rets = unsafe { ffi::m3_GetRetCount(func.as_ptr()) };
+        match num_rets {
+            0 => Ret::TYPE_INDEX == ffi::M3ValueType::c_m3Type_none,
+            1 => {
+                let ret = unsafe { ffi::m3_GetRetType(func.as_ptr(), 0) };
+                Ret::TYPE_INDEX == ret
+            }
+            _ => false,
+        }
     }
 
     #[inline]

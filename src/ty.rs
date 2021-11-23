@@ -34,7 +34,7 @@ pub trait WasmArgs {
     // required for closure linking
     unsafe fn pop_from_stack(stack: *mut u64) -> Self;
     #[doc(hidden)]
-    fn validate_types(types: impl Iterator<Item=ffi::M3ValueType::Type>) -> bool;
+    fn validate_types(types: impl Iterator<Item = ffi::M3ValueType::Type>) -> bool;
     #[doc(hidden)]
     fn sealed_() -> private::Seal;
     #[doc(hidden)]
@@ -198,7 +198,7 @@ impl WasmArgs for () {
     #[doc(hidden)]
     unsafe fn pop_from_stack(_: *mut u64) -> Self {}
     #[doc(hidden)]
-    fn validate_types(mut types: impl Iterator<Item=ffi::M3ValueType::Type>) -> bool {
+    fn validate_types(mut types: impl Iterator<Item = ffi::M3ValueType::Type>) -> bool {
         types.next().is_none()
     }
     #[doc(hidden)]
@@ -227,9 +227,8 @@ where
         WasmType::pop_from_stack(stack)
     }
     #[doc(hidden)]
-    fn validate_types(mut types: impl Iterator<Item=ffi::M3ValueType::Type>) -> bool {
-        types.next().map(|ty| ty == T::TYPE_INDEX).unwrap_or(false) &&
-            types.next().is_none()
+    fn validate_types(mut types: impl Iterator<Item = ffi::M3ValueType::Type>) -> bool {
+        types.next().map(|ty| ty == T::TYPE_INDEX).unwrap_or(false) && types.next().is_none()
     }
     #[doc(hidden)]
     fn sealed_() -> private::Seal {
@@ -309,53 +308,69 @@ mod tests {
     use super::*;
     #[test]
     fn test_validate_types_single() {
-        assert!(f64::validate_types([
-            ffi::M3ValueType::c_m3Type_f64,
-        ].iter().cloned()));
+        assert!(f64::validate_types(
+            [ffi::M3ValueType::c_m3Type_f64,].iter().cloned()
+        ));
     }
 
     #[test]
     fn test_validate_types_single_fail() {
-        assert!(!f32::validate_types([
-            ffi::M3ValueType::c_m3Type_f64,
-        ].iter().cloned()));
+        assert!(!f32::validate_types(
+            [ffi::M3ValueType::c_m3Type_f64,].iter().cloned()
+        ));
     }
 
     #[test]
     fn test_validate_types_double() {
-        assert!(<(f64, u32)>::validate_types([
-            ffi::M3ValueType::c_m3Type_f64,
-            ffi::M3ValueType::c_m3Type_i32,
-        ].iter().cloned()));
+        assert!(<(f64, u32)>::validate_types(
+            [
+                ffi::M3ValueType::c_m3Type_f64,
+                ffi::M3ValueType::c_m3Type_i32,
+            ]
+            .iter()
+            .cloned()
+        ));
     }
 
     #[test]
     fn test_validate_types_double_fail() {
-        assert!(!<(f32, u64)>::validate_types([
-            ffi::M3ValueType::c_m3Type_i64,
-            ffi::M3ValueType::c_m3Type_f32,
-        ].iter().cloned()));
+        assert!(!<(f32, u64)>::validate_types(
+            [
+                ffi::M3ValueType::c_m3Type_i64,
+                ffi::M3ValueType::c_m3Type_f32,
+            ]
+            .iter()
+            .cloned()
+        ));
     }
 
     #[test]
     fn test_validate_types_quintuple() {
-        assert!(<(f64, u32, i32, i64, f32)>::validate_types([
-            ffi::M3ValueType::c_m3Type_f64,
-            ffi::M3ValueType::c_m3Type_i32,
-            ffi::M3ValueType::c_m3Type_i32,
-            ffi::M3ValueType::c_m3Type_i64,
-            ffi::M3ValueType::c_m3Type_f32,
-        ].iter().cloned()));
+        assert!(<(f64, u32, i32, i64, f32)>::validate_types(
+            [
+                ffi::M3ValueType::c_m3Type_f64,
+                ffi::M3ValueType::c_m3Type_i32,
+                ffi::M3ValueType::c_m3Type_i32,
+                ffi::M3ValueType::c_m3Type_i64,
+                ffi::M3ValueType::c_m3Type_f32,
+            ]
+            .iter()
+            .cloned()
+        ));
     }
 
     #[test]
     fn test_validate_types_quintuple_fail() {
-        assert!(!<(f64, u32, i32, i64, f32)>::validate_types([
-            ffi::M3ValueType::c_m3Type_i32,
-            ffi::M3ValueType::c_m3Type_i64,
-            ffi::M3ValueType::c_m3Type_i32,
-            ffi::M3ValueType::c_m3Type_f32,
-            ffi::M3ValueType::c_m3Type_f64,
-        ].iter().cloned()));
+        assert!(!<(f64, u32, i32, i64, f32)>::validate_types(
+            [
+                ffi::M3ValueType::c_m3Type_i32,
+                ffi::M3ValueType::c_m3Type_i64,
+                ffi::M3ValueType::c_m3Type_i32,
+                ffi::M3ValueType::c_m3Type_f32,
+                ffi::M3ValueType::c_m3Type_f64,
+            ]
+            .iter()
+            .cloned()
+        ));
     }
 }

@@ -7,7 +7,7 @@ use core::str;
 use crate::error::{Error, Result};
 use crate::runtime::Runtime;
 use crate::utils::cstr_to_str;
-use crate::{WasmArgs, WasmType, Module};
+use crate::{Module, WasmArgs, WasmType};
 
 /// Calling Context for a host function.
 pub struct CallContext<'cc> {
@@ -108,8 +108,7 @@ where
 {
     fn validate_sig(func: NNM3Function) -> bool {
         let num_args = unsafe { ffi::m3_GetArgCount(func.as_ptr()) };
-        let args = (0..num_args)
-            .map(|i| unsafe { ffi::m3_GetArgType(func.as_ptr(), i) });
+        let args = (0..num_args).map(|i| unsafe { ffi::m3_GetArgType(func.as_ptr(), i) });
         if !Args::validate_types(args) {
             return false;
         }
@@ -139,9 +138,8 @@ where
 
     fn call_impl(&self, args: Args) -> Result<Ret> {
         let mut argv = args.ptrs_vec();
-        let result = unsafe {
-           ffi::m3_Call(self.raw.as_ptr(), argv.len() as u32, argv.as_mut_ptr())
-        };
+        let result =
+            unsafe { ffi::m3_Call(self.raw.as_ptr(), argv.len() as u32, argv.as_mut_ptr()) };
         Error::from_ffi_res(result)?;
         unsafe {
             let mut ret = core::mem::MaybeUninit::<Ret>::uninit();

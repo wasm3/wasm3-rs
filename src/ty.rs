@@ -1,4 +1,3 @@
-use alloc::vec;
 use alloc::vec::Vec;
 
 // this module looks like a mess, lots of doc(hidden) attributes since rust traits cant have private functions
@@ -39,8 +38,6 @@ pub trait WasmArgs {
     fn sealed_() -> private::Seal;
     #[doc(hidden)]
     fn append_signature(buffer: &mut Vec<cty::c_char>);
-    #[doc(hidden)]
-    fn ptrs_vec(&self) -> Vec<*const cty::c_void>;
 }
 
 impl WasmArg for i32 {}
@@ -207,10 +204,6 @@ impl WasmArgs for () {
     }
     #[doc(hidden)]
     fn append_signature(_buffer: &mut Vec<cty::c_char>) {}
-    #[doc(hidden)]
-    fn ptrs_vec(&self) -> Vec<*const cty::c_void> {
-        Vec::new()
-    }
 }
 
 /// Unary functions
@@ -237,10 +230,6 @@ where
     #[doc(hidden)]
     fn append_signature(buffer: &mut Vec<cty::c_char>) {
         buffer.push(T::SIGNATURE as cty::c_char);
-    }
-    #[doc(hidden)]
-    fn ptrs_vec(&self) -> Vec<*const cty::c_void> {
-        vec![self as *const T as *const cty::c_void]
     }
 }
 
@@ -291,12 +280,6 @@ macro_rules! args_impl {
                 $(
                     buffer.push($types::SIGNATURE as cty::c_char);
                 )*
-            }
-            #[doc(hidden)]
-            fn ptrs_vec(&self) -> Vec<*const cty::c_void> {
-                #[allow(non_snake_case)]
-                let ($($types,)*) = self;
-                vec![$($types as *const $types as *const cty::c_void,)*]
             }
         }
     };

@@ -7,7 +7,7 @@ use core::str;
 use crate::error::{Error, Result};
 use crate::runtime::Runtime;
 use crate::utils::cstr_to_str;
-use crate::{Module, WasmArgs, WasmType};
+use crate::{Module, WasmArg, WasmArgs, WasmType};
 
 /// Calling Context for a host function.
 pub struct CallContext<'cc> {
@@ -136,11 +136,7 @@ where
         })
     }
 
-    fn call_impl(&self, args: Args) -> Result<Ret> {
-        let mut argv = args.ptrs_vec();
-        let result =
-            unsafe { ffi::m3_Call(self.raw.as_ptr(), argv.len() as u32, argv.as_mut_ptr()) };
-        Error::from_ffi_res(result)?;
+    fn get_call_result(&self) -> Result<Ret> {
         unsafe {
             let mut ret = core::mem::MaybeUninit::<Ret>::uninit();
             let result = ffi::m3_GetResultsV(self.raw.as_ptr(), ret.as_mut_ptr());
@@ -168,7 +164,9 @@ macro_rules! func_call_impl {
             #[inline]
             #[allow(non_snake_case, clippy::too_many_arguments)]
             pub fn call(&self, $($types: $types),*) -> Result<Ret> {
-                self.call_impl(($($types,)*))
+                let result = unsafe { ffi::m3_CallV(self.raw.as_ptr(), $($types,)*) };
+                Error::from_ffi_res(result)?;
+                self.get_call_result()
             }
         }
     };
@@ -178,13 +176,15 @@ func_call_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
 impl<'rt, ARG, Ret> Function<'rt, ARG, Ret>
 where
     Ret: WasmType,
-    ARG: crate::WasmArg,
+    ARG: WasmArg,
 {
     /// Calls this function with the given parameter.
     /// This is implemented with variable arguments depending on the functions Args type.
     #[inline]
     pub fn call(&self, arg: ARG) -> Result<Ret> {
-        self.call_impl(arg)
+        let result = unsafe { ffi::m3_CallV(self.raw.as_ptr(), arg) };
+        Error::from_ffi_res(result)?;
+        self.get_call_result()
     }
 }
 
@@ -196,6 +196,8 @@ where
     /// This is implemented with variable arguments depending on the functions Args type.
     #[inline]
     pub fn call(&self) -> Result<Ret> {
-        self.call_impl(())
+        let result = unsafe { ffi::m3_CallV(self.raw.as_ptr()) };
+        Error::from_ffi_res(result)?;
+        self.get_call_result()
     }
 }

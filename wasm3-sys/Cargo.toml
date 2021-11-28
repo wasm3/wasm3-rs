@@ -1,11 +1,12 @@
 [package]
 name = "wasm3-sys"
 version = "0.2.0"
-authors = ["Lukas Tobias Wirth <lukastw97@gmail.com>"]
+authors = [
+    "Oasis Protocol Foundation <info@oasisprotocol.org>",
+    "Lukas Tobias Wirth <lukastw97@gmail.com>"
+]
 edition = "2018"
-description = "Raw ffi bindings for wasm3"
-homepage = "https://github.com/veykril/wasm3-rs"
-repository = "https://github.com/veykril/wasm3-rs"
+description = "Raw FFI bindings for wasm3"
 categories = ["external-ffi-bindings"]
 build = "build.rs"
 license = "MIT"
@@ -13,7 +14,6 @@ links = "wasm3"
 include = ["wasm3/source/**/*", "src/**/*", "Cargo.toml", "build.rs"]
 
 [features]
-wasi = []
 use-32bit-slots = []
 floats = []
 

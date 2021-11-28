@@ -5,14 +5,16 @@
 #[allow(unused_extern_crates)]
 extern crate rs_libc;
 
-use std::any::Any;
-use std::boxed::Box;
-use std::cell::{RefCell, UnsafeCell};
-use std::convert::TryInto;
-use std::ffi::{CStr, CString};
-use std::marker::PhantomData;
-use std::pin::Pin;
-use std::ptr::{self, NonNull};
+use std::{
+    any::Any,
+    boxed::Box,
+    cell::{RefCell, UnsafeCell},
+    convert::TryInto,
+    ffi::{CStr, CString},
+    marker::PhantomData,
+    pin::Pin,
+    ptr::{self, NonNull},
+};
 
 use impl_trait_for_tuples::impl_for_tuples;
 use thiserror::Error;

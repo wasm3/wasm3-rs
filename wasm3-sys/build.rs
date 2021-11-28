@@ -106,8 +106,20 @@ fn main() {
         .extra_warnings(false)
         .include(WASM3_SOURCE);
 
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
+    let target_vendor = env::var("CARGO_CFG_TARGET_VENDOR").unwrap();
+
+    // Set options specific for x86_64-fortanix-unknown-sgx target.
+    if target_arch == "x86_64" && target_env == "sgx" && target_vendor == "fortanix" {
+        // Disable the stack protector as the Fortanix ABI currently sets FS and GS bases to the
+        // same value and the stack protector assumes the canary value is at FS:0x28 but with the
+        // Fortanix ABI that contains a copy of RSP.
+        cfg.flag("-fno-stack-protector");
+    }
+
     // Add any extra arguments from the environment to the CC command line.
-    if let Ok(extra_clang_args) = std::env::var("BINDGEN_EXTRA_CLANG_ARGS") {
+    if let Ok(extra_clang_args) = env::var("BINDGEN_EXTRA_CLANG_ARGS") {
         // Try to parse it with shell quoting. If we fail, make it one single big argument.
         if let Some(strings) = shlex::split(&extra_clang_args) {
             strings.iter().for_each(|string| {

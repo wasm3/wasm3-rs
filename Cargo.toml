@@ -33,6 +33,7 @@ package = "wasm3-sys"
 
 [dev-dependencies]
 trybuild = "1.0"
+anyhow = "1"
 
 [profile.release]
 opt-level = 3

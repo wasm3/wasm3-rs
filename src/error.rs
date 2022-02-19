@@ -32,6 +32,7 @@ pub static ref FUNCTION_LOOKUP_FAILED_STR:&'static str=unsafe { cstr_to_str(ffi:
 pub static ref MALLOC_FAILED_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_mallocFailed) };
 
 }
+
 /// Result alias that uses [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 /// Result alias that uses [`Trap`].

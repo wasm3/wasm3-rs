@@ -1,10 +1,37 @@
 //! Error related functionality of wasm3.
 use core::cmp;
 use core::fmt;
-use cty::c_char;
 
 use crate::utils::cstr_to_str;
 
+lazy_static::lazy_static! {
+/// Out of bounds memory access error static str
+pub static ref OUT_OF_BOUNDS_MEMORY_ACCESS_STR:&'static str= unsafe { cstr_to_str(ffi::m3Err_trapOutOfBoundsMemoryAccess) };
+/// Division by zero error static str
+pub static ref DIVISION_BY_ZERO_STR:&'static str= unsafe { cstr_to_str(ffi::m3Err_trapDivisionByZero) };
+/// Integer overflow error static str
+pub static ref INTEGER_OVERFLOW_STR:&'static str= unsafe { cstr_to_str(ffi::m3Err_trapIntegerOverflow) };
+/// Integer conversion error static str
+pub static ref INTEGER_CONVERSION_ST:&'static str=unsafe { cstr_to_str(ffi::m3Err_trapIntegerConversion) };
+/// Indirect call type mismatch error static str
+pub static ref INDIRECT_CALL_TYPE_MISMATCH_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_trapIndirectCallTypeMismatch) };
+/// Table index out of range error static str
+pub static ref TABLE_INDEX_OUT_OF_RANGE_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_trapTableIndexOutOfRange) };
+/// Exit error static str
+pub static ref EXIT_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_trapExit) };
+/// Abort error static str
+pub static ref ABORT_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_trapAbort) };
+/// Unreachable error static str
+pub static ref UNREACHABLE_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_trapUnreachable) };
+/// Stack overflow error static str
+pub static ref STACK_OVERFLOW_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_trapStackOverflow) };
+
+/// function lookup failed error static str
+pub static ref FUNCTION_LOOKUP_FAILED_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_functionLookupFailed) };
+/// malloc failed error static str
+pub static ref MALLOC_FAILED_STR:&'static str=unsafe { cstr_to_str(ffi::m3Err_mallocFailed) };
+
+}
 /// Result alias that uses [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 /// Result alias that uses [`Trap`].
@@ -35,29 +62,32 @@ pub enum Trap {
     StackOverflow,
 }
 
+
 impl Trap {
     #[doc(hidden)]
-    pub fn as_ptr(self) -> ffi::M3Result {
-        unsafe {
-            match self {
-                Trap::OutOfBoundsMemoryAccess => ffi::m3Err_trapOutOfBoundsMemoryAccess,
-                Trap::DivisionByZero => ffi::m3Err_trapDivisionByZero,
-                Trap::IntegerOverflow => ffi::m3Err_trapIntegerOverflow,
-                Trap::IntegerConversion => ffi::m3Err_trapIntegerConversion,
-                Trap::IndirectCallTypeMismatch => ffi::m3Err_trapIndirectCallTypeMismatch,
-                Trap::TableIndexOutOfRange => ffi::m3Err_trapTableIndexOutOfRange,
-                Trap::Exit => ffi::m3Err_trapExit,
-                Trap::Abort => ffi::m3Err_trapAbort,
-                Trap::Unreachable => ffi::m3Err_trapUnreachable,
-                Trap::StackOverflow => ffi::m3Err_trapStackOverflow,
-            }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Trap::OutOfBoundsMemoryAccess => &OUT_OF_BOUNDS_MEMORY_ACCESS_STR,
+            Trap::DivisionByZero =>  &DIVISION_BY_ZERO_STR,
+            Trap::IntegerOverflow =>  &INTEGER_OVERFLOW_STR,
+            Trap::IntegerConversion =>  &INTEGER_CONVERSION_ST,
+            Trap::IndirectCallTypeMismatch =>  &INDIRECT_CALL_TYPE_MISMATCH_STR,
+            Trap::TableIndexOutOfRange =>  &TABLE_INDEX_OUT_OF_RANGE_STR,
+            Trap::Exit =>  &EXIT_STR,
+            Trap::Abort =>  &ABORT_STR,
+            Trap::Unreachable =>  &UNREACHABLE_STR,
+            Trap::StackOverflow =>  &STACK_OVERFLOW_STR,
         }
+    }
+    #[doc(hidden)]
+    pub (crate) fn as_ptr(self)->* const i8{
+        self.as_str().as_ptr().cast()
     }
 }
 
 impl cmp::PartialEq<Wasm3Error> for Trap {
-    fn eq(&self, &Wasm3Error(err): &Wasm3Error) -> bool {
-        self.as_ptr() == err.get_ptr()
+    fn eq(&self, &Wasm3Error(msg): &Wasm3Error) -> bool {
+        self.as_str() == msg
     }
 }
 
@@ -65,45 +95,25 @@ impl cmp::PartialEq<Wasm3Error> for Trap {
 impl std::error::Error for Trap {}
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(unsafe { cstr_to_str(self.as_ptr()) }, f)
+        fmt::Display::fmt(self.as_str(), f)
     }
 }
 
-/// Wasm3 Error ptr transform
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Wasm3ErrorPtr{
-    ptr:usize
-}
-
-impl Wasm3ErrorPtr {
-    /// get error ptr
-    pub fn get_ptr(&self)->*const cty::c_char{
-        self.ptr as *const cty::c_char
-    }
-}
-
-impl From<*const cty::c_char> for Wasm3ErrorPtr {
-    fn from(ptr: *const c_char) -> Self {
-        Wasm3ErrorPtr{
-            ptr:ptr as usize
-        }
-    }
-}
 
 /// Error returned by wasm3.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Wasm3Error(Wasm3ErrorPtr);
+pub struct Wasm3Error(&'static str);
 
 impl Wasm3Error {
     /// Check whether this error is the specified trap.
     pub fn is_trap(self, trap: Trap) -> bool {
-        trap.as_ptr() == self.0.get_ptr()
+        trap == self
     }
 }
 
 impl cmp::PartialEq<Trap> for Wasm3Error {
     fn eq(&self, trap: &Trap) -> bool {
-        trap.as_ptr() == self.0.get_ptr()
+        trap.as_str() == self.0
     }
 }
 
@@ -111,12 +121,12 @@ impl cmp::PartialEq<Trap> for Wasm3Error {
 impl std::error::Error for Wasm3Error {}
 impl fmt::Debug for Wasm3Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(unsafe { cstr_to_str(self.0.get_ptr()) }, f)
+        fmt::Debug::fmt(self.0, f)
     }
 }
 impl fmt::Display for Wasm3Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(unsafe { cstr_to_str(self.0.get_ptr()) }, f)
+        fmt::Display::fmt(self.0, f)
     }
 }
 
@@ -140,14 +150,14 @@ impl Error {
         if ptr.is_null() {
             Ok(())
         } else if unsafe { ptr == ffi::m3Err_functionLookupFailed } {
-            Err(Error::FunctionNotFound)
+            Err(Error::Wasm3(Wasm3Error( &FUNCTION_LOOKUP_FAILED_STR)))
         } else {
-            Err(Error::Wasm3(Wasm3Error(Wasm3ErrorPtr::from(ptr))))
+            Err(Error::Wasm3(Wasm3Error(unsafe { cstr_to_str(ptr) })))
         }
     }
 
     pub(crate) fn malloc_error() -> Self {
-        Error::Wasm3(Wasm3Error(Wasm3ErrorPtr::from(unsafe { ffi::m3Err_mallocFailed })))
+        Error::Wasm3(Wasm3Error( &MALLOC_FAILED_STR))
     }
 }
 

@@ -25,6 +25,7 @@ build-bindgen = ["ffi/build-bindgen"]
 
 [dependencies]
 cty = "0.2"
+lazy_static = "1.4"
 
 [dependencies.ffi]
 version = "0.5.0"

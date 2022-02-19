@@ -1,10 +1,9 @@
 use wasm3::Environment;
 use wasm3::Module;
-use anyhow::Result;
 
 const MILLIS: u64 = 500_000;
 
-fn main() {
+fn main() ->anyhow::Result<()> {
     let env = Environment::new()?;
     let rt = env
         .create_runtime(1024 * 60)?;
@@ -21,4 +20,5 @@ fn main() {
 
     println!("{}ms in seconds is {:?}s.", MILLIS, func.call()?);
     assert_eq!(func.call(), Ok(MILLIS / 1000));
+    Ok(())
 }

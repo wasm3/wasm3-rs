@@ -1,3 +1,5 @@
+[![SWUbanner](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct.svg)](https://github.com/vshymanskyy/StandWithUkraine/blob/main/docs/README.md)
+
 # wasm3-rs
 
 ![Build](https://github.com/wasm3/wasm3-rs/workflows/Rust/badge.svg?branch=master)

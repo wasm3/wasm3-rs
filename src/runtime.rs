@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 use core::pin::Pin;
@@ -13,8 +14,14 @@ use crate::utils::str_to_cstr_owned;
 type PinnedAnyClosure = Pin<Box<dyn core::any::Any + 'static>>;
 
 /// A runtime context for wasm3 modules.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Runtime {
+    inner: Rc<RuntimeInner>,
+}
+
+/// A runtime context for wasm3 modules.
+#[derive(Debug)]
+struct RuntimeInner {
     raw: NonNull<ffi::M3Runtime>,
     environment: Environment,
     // holds all linked closures so that they properly get disposed of when runtime drops
@@ -38,17 +45,18 @@ impl Runtime {
             ))
         }
         .ok_or_else(Error::malloc_error)
-        .map(|raw| Runtime {
+        .map(|raw| RuntimeInner {
             raw,
             environment: environment.clone(),
             closure_store: UnsafeCell::new(Vec::new()),
             module_data: UnsafeCell::new(Vec::new()),
         })
+        .map(|inner| Runtime { inner: Rc::new(inner) })
     }
 
     /// Parses and loads a module from bytes.
     pub fn parse_and_load_module<TData: Into<Box<[u8]>>>(&self, bytes: TData) -> Result<Module> {
-        Module::parse(&self.environment, bytes).and_then(|module| self.load_module(module))
+        Module::parse(&self.inner.environment, bytes).and_then(|module| self.load_module(module))
     }
 
     /// Loads a parsed module returning the module if unsuccessful.
@@ -57,14 +65,14 @@ impl Runtime {
     ///
     /// This function will error if the module's environment differs from the one this runtime uses.
     pub fn load_module(&self, module: ParsedModule) -> Result<Module> {
-        if &self.environment != module.environment() {
+        if &self.inner.environment != module.environment() {
             Err(Error::ModuleLoadEnvMismatch)
         } else {
             let raw_mod = module.as_ptr();
-            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.raw.as_ptr(), raw_mod) })?;
+            Error::from_ffi_res(unsafe { ffi::m3_LoadModule(self.inner.raw.as_ptr(), raw_mod) })?;
             // SAFETY: Runtime isn't Send, therefor this access is single-threaded and kept alive only for the Vec::push call
             // as such this can not alias.
-            unsafe { (*self.module_data.get()).push(module.take_data()) };
+            unsafe { (*self.inner.module_data.get()).push(module.take_data()) };
 
             Ok(Module::from_raw(self, raw_mod))
         }
@@ -118,15 +126,15 @@ impl Runtime {
 
 impl Runtime {
     pub(crate) fn push_closure(&self, closure: PinnedAnyClosure) {
-        unsafe { (*self.closure_store.get()).push(closure) };
+        unsafe { (*self.inner.closure_store.get()).push(closure) };
     }
 
     pub(crate) fn as_ptr(&self) -> ffi::IM3Runtime {
-        self.raw.as_ptr()
+        self.inner.raw.as_ptr()
     }
 }
 
-impl Drop for Runtime {
+impl Drop for RuntimeInner {
     fn drop(&mut self) {
         unsafe { ffi::m3_FreeRuntime(self.raw.as_ptr()) };
     }

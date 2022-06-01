@@ -67,12 +67,12 @@ impl ParsedModule {
 
 /// A loaded module belonging to a specific runtime. Allows for linking and looking up functions.
 // needs no drop as loaded modules will be cleaned up by the runtime
-pub struct Module<'rt> {
+pub struct Module {
     raw: ffi::IM3Module,
-    rt: &'rt Runtime,
+    rt: Runtime,
 }
 
-impl<'rt> Module<'rt> {
+impl Module {
     /// Parses a wasm module from raw bytes.
     #[inline]
     pub fn parse<TData: Into<Box<[u8]>>>(
@@ -204,7 +204,7 @@ impl<'rt> Module<'rt> {
     /// * a memory allocation failed
     /// * no function by the given name in the given module could be found
     /// * the function has been found but the signature did not match
-    pub fn find_function<Args, Ret>(&self, function_name: &str) -> Result<Function<'rt, Args, Ret>>
+    pub fn find_function<Args, Ret>(&self, function_name: &str) -> Result<Function<Args, Ret>>
     where
         Args: crate::WasmArgs,
         Ret: crate::WasmType,
@@ -228,9 +228,9 @@ impl<'rt> Module<'rt> {
     }
 }
 
-impl<'rt> Module<'rt> {
-    pub(crate) fn from_raw(rt: &'rt Runtime, raw: ffi::IM3Module) -> Self {
-        Module { raw, rt }
+impl Module {
+    pub(crate) fn from_raw(rt: &Runtime, raw: ffi::IM3Module) -> Self {
+        Module { raw, rt: rt.clone() }
     }
 }
 

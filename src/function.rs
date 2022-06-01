@@ -60,27 +60,27 @@ pub(crate) type NNM3Function = NonNull<ffi::M3Function>;
 /// A callable wasm3 function.
 /// This has a generic `call` function for up to 26 parameters emulating an overloading behaviour without having to resort to tuples.
 /// These are hidden to not pollute the documentation.
-#[derive(Debug, Copy, Clone)]
-pub struct Function<'rt, Args, Ret> {
+#[derive(Debug, Clone)]
+pub struct Function<Args, Ret> {
     raw: NNM3Function,
-    rt: &'rt Runtime,
+    rt: Runtime,
     _pd: PhantomData<*const (Args, Ret)>,
 }
 
-impl<'rt, Args, Ret> Eq for Function<'rt, Args, Ret> {}
-impl<'rt, Args, Ret> PartialEq for Function<'rt, Args, Ret> {
+impl<Args, Ret> Eq for Function<Args, Ret> {}
+impl<Args, Ret> PartialEq for Function<Args, Ret> {
     fn eq(&self, other: &Self) -> bool {
         self.raw == other.raw
     }
 }
 
-impl<'rt, Args, Ret> Hash for Function<'rt, Args, Ret> {
+impl<Args, Ret> Hash for Function<Args, Ret> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.raw.hash(state);
     }
 }
 
-impl<'rt, Args, Ret> Function<'rt, Args, Ret>
+impl<Args, Ret> Function<Args, Ret>
 where
     Args: WasmArgs,
     Ret: WasmType,
@@ -91,17 +91,17 @@ where
     }
 
     /// The module containing this function.
-    pub fn module(&self) -> Option<Module<'rt>> {
+    pub fn module(&self) -> Option<Module> {
         let module = unsafe { ffi::m3_GetFunctionModule(self.raw.as_ptr()) };
         if !module.is_null() {
-            Some(Module::from_raw(self.rt, module))
+            Some(Module::from_raw(&self.rt, module))
         } else {
             None
         }
     }
 }
 
-impl<'rt, Args, Ret> Function<'rt, Args, Ret>
+impl<Args, Ret> Function<Args, Ret>
 where
     Args: WasmArgs,
     Ret: WasmType,
@@ -125,13 +125,13 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_raw(rt: &'rt Runtime, raw: NNM3Function) -> Result<Self> {
+    pub(crate) fn from_raw(rt: &Runtime, raw: NNM3Function) -> Result<Self> {
         if !Self::validate_sig(raw) {
             return Err(Error::InvalidFunctionSignature);
         }
         Ok(Function {
             raw,
-            rt,
+            rt: rt.clone(),
             _pd: PhantomData,
         })
     }
@@ -156,7 +156,7 @@ macro_rules! func_call_impl {
     (@do_impl) => {};
     (@do_impl $($types:ident,)*) => {
     #[doc(hidden)] // this really pollutes the documentation
-        impl<'rt, $($types,)* Ret> Function<'rt, ($($types,)*), Ret>
+        impl<$($types,)* Ret> Function<($($types,)*), Ret>
         where
             Ret: WasmType,
             ($($types,)*): WasmArgs,
@@ -173,7 +173,7 @@ macro_rules! func_call_impl {
 }
 func_call_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
 
-impl<'rt, ARG, Ret> Function<'rt, ARG, Ret>
+impl<ARG, Ret> Function<ARG, Ret>
 where
     Ret: WasmType,
     ARG: WasmArg,
@@ -188,7 +188,7 @@ where
     }
 }
 
-impl<'rt, Ret> Function<'rt, (), Ret>
+impl<Ret> Function<(), Ret>
 where
     Ret: WasmType,
 {

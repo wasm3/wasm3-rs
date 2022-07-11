@@ -498,7 +498,11 @@ impl<'env, 'rt, C> Instance<'env, 'rt, C> {
 
             // Execute function.
             let userdata = (*ctx).userdata;
-            let ret = match (&mut *userdata.cast::<F>())(context, args) {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                (&mut *userdata.cast::<F>())(context, args)
+            }))
+            .unwrap_or(Err(Trap::Abort));
+            let ret = match result {
                 Ok(ret) => ret,
                 Err(Trap::Abort) => return ffi::m3Err_trapAbort as _,
             };
@@ -1141,6 +1145,28 @@ mod test {
             call_context, 42,
             "context should be updated from linked function"
         );
+    }
+
+    #[test]
+    fn test_link_function_panic() {
+        let env = Environment::new().unwrap();
+        let rt = env.new_runtime::<()>(60 * 1024, Some(16)).unwrap();
+        let module = env
+            .parse_module(
+                &include_bytes!("../tests/wasm/wasm_millis_to_seconds/wasm_millis_to_seconds.wasm")
+                    [..],
+            )
+            .unwrap();
+        let mut instance = rt.load_module(module).unwrap();
+
+        instance
+            .link_function("time", "millis", |_, ()| -> Result<u64, Trap> {
+                panic!("boom");
+            })
+            .unwrap();
+
+        let func = instance.find_function::<(), u64>("seconds").unwrap();
+        func.call(()).expect_err("call should abort with trap");
     }
 
     #[test]

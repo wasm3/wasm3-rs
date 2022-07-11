@@ -1,4 +1,3 @@
 **/target
 Cargo.lock
 wasm3-sys/wrapper.h
-rust-toolchain

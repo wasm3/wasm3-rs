@@ -1,6 +1,6 @@
 [package]
 name = "wasm3-sys"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
     "Oasis Protocol Foundation <info@oasisprotocol.org>",
     "Lukas Tobias Wirth <lukastw97@gmail.com>"

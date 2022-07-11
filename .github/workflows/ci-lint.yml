@@ -28,9 +28,7 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
           components: rustfmt, clippy
-          override: true
 
       - name: Clippy check
         uses: actions-rs/clippy-check@v1

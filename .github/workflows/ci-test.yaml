@@ -28,9 +28,7 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
           components: rustfmt # rustfmt is required for macros tests.
-          override: true
 
       - name: Unit tests with coverage
         uses: actions-rs/tarpaulin@v0.1

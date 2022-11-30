@@ -40,11 +40,11 @@ fn gen_bindings() {
         .arg("--no-layout-tests")
         .arg("--default-enum-style=moduleconsts")
         .arg("--no-doc-comments")
-        .arg("--whitelist-function")
+        .arg("--allowlist-function")
         .arg(WHITELIST_REGEX_FUNCTION)
-        .arg("--whitelist-type")
+        .arg("--allowlist-type")
         .arg(WHITELIST_REGEX_TYPE)
-        .arg("--whitelist-var")
+        .arg("--allowlist-var")
         .arg(WHITELIST_REGEX_VAR)
         .arg("--no-derive-debug");
     for &ty in PRIMITIVES.iter() {

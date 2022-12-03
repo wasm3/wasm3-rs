@@ -48,7 +48,7 @@ fn gen_bindings() {
         .arg(WHITELIST_REGEX_VAR)
         .arg("--no-derive-debug");
     for &ty in PRIMITIVES.iter() {
-        bindgen.arg("--blacklist-type").arg(ty);
+        bindgen.arg("--blocklist-type").arg(ty);
     }
     bindgen
         .arg("-o")

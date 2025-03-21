@@ -57,7 +57,7 @@ impl Environment {
 
 impl core::cmp::Eq for Environment {}
 impl core::cmp::PartialEq for Environment {
-    fn eq(&self, &Environment(ref other): &Environment) -> bool {
+    fn eq(&self, Environment(other): &Environment) -> bool {
         alloc::rc::Rc::ptr_eq(&self.0, other)
     }
 }

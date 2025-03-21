@@ -84,7 +84,7 @@ impl<'rt> Module<'rt> {
 
     /// Links the given function to the corresponding module and function name.
     /// This allows linking a more verbose function, as it gets access to the unsafe
-    /// runtime parts. For easier use the [`make_func_wrapper`] should be used to create
+    /// runtime parts. For easier use the [`crate::make_func_wrapper`] should be used to create
     /// the unsafe facade for your function that then can be passed to this.
     ///
     /// For a simple API see [`link_closure`] which takes a closure instead.
@@ -219,6 +219,11 @@ impl<'rt> Module<'rt> {
     /// The name of this module.
     pub fn name(&self) -> &str {
         unsafe { cstr_to_str(ffi::m3_GetModuleName(self.raw)) }
+    }
+
+    /// Compile all functions in the module.
+    pub fn compile(&mut self) -> Result<()> {
+        unsafe { Error::from_ffi_res(ffi::m3_CompileModule(self.raw)) }
     }
 
     /// Links wasi to this module.

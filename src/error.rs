@@ -60,8 +60,7 @@ impl cmp::PartialEq<Wasm3Error> for Trap {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Trap {}
+impl core::error::Error for Trap {}
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(unsafe { cstr_to_str(self.as_ptr()) }, f)
@@ -85,8 +84,7 @@ impl cmp::PartialEq<Trap> for Wasm3Error {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Wasm3Error {}
+impl core::error::Error for Wasm3Error {}
 impl fmt::Debug for Wasm3Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(unsafe { cstr_to_str(self.0) }, f)
@@ -129,8 +127,7 @@ impl Error {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Error {}
+impl core::error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

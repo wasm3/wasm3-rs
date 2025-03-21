@@ -242,7 +242,7 @@ macro_rules! args_impl {
     };
     (@do_impl) => {/* catch the () case, since its implementation differs slightly */};
     (@do_impl $($types:ident,)*) => {
-        #[allow(clippy::eval_order_dependence)]
+        #[allow(clippy::mixed_read_write_in_expression)]
         #[allow(unused_assignments)]
         impl<$($types,)*> WasmArgs for ($($types,)*)
         where $($types: WasmArg,)* {

@@ -67,14 +67,14 @@ pub struct Function<'rt, Args, Ret> {
     _pd: PhantomData<*const (Args, Ret)>,
 }
 
-impl<'rt, Args, Ret> Eq for Function<'rt, Args, Ret> {}
-impl<'rt, Args, Ret> PartialEq for Function<'rt, Args, Ret> {
+impl<Args, Ret> Eq for Function<'_, Args, Ret> {}
+impl<Args, Ret> PartialEq for Function<'_, Args, Ret> {
     fn eq(&self, other: &Self) -> bool {
         self.raw == other.raw
     }
 }
 
-impl<'rt, Args, Ret> Hash for Function<'rt, Args, Ret> {
+impl<Args, Ret> Hash for Function<'_, Args, Ret> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.raw.hash(state);
     }
@@ -173,7 +173,7 @@ macro_rules! func_call_impl {
 }
 func_call_impl!(A, B, C, D, E, F, G, H, J, K, L, M, N, O, P, Q);
 
-impl<'rt, ARG, Ret> Function<'rt, ARG, Ret>
+impl<ARG, Ret> Function<'_, ARG, Ret>
 where
     Ret: WasmType,
     ARG: WasmArg,
@@ -188,7 +188,7 @@ where
     }
 }
 
-impl<'rt, Ret> Function<'rt, (), Ret>
+impl<Ret> Function<'_, (), Ret>
 where
     Ret: WasmType,
 {

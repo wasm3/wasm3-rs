@@ -2,7 +2,6 @@
 
 # wasm3-rs
 
-![Build](https://github.com/wasm3/wasm3-rs/workflows/Rust/badge.svg?branch=master)
 [![Crates.io](https://img.shields.io/crates/v/wasm3.svg)](https://crates.io/crates/wasm3)
 [![Docs.rs](https://docs.rs/wasm3/badge.svg)](https://docs.rs/wasm3)
 ![Tokei](https://tokei.rs/b1/github/wasm3/wasm3-rs)
@@ -76,4 +75,4 @@ cargo run --example wasm_print
 
 ## License
 
-Licensed under the MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+Licensed under the MIT license ([LICENSE-MIT](LICENSE) or <http://opensource.org/licenses/MIT>)
